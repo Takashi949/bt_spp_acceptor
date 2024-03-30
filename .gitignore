@@ -1,0 +1,5 @@
+/.devcontainer
+/.vscode
+/build
+/ESP32_SSP.md
+/sdkconfig.defaults
