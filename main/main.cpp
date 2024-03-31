@@ -76,11 +76,11 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     if(msg[0] == 'c' && msg[1] == 't'){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
-        if(0 <= val && val <= 100){
+        if(val <= 100){
             throttle = val;
             if(oldThrottle != throttle){
                 //set the throttle value
-                //ESP_ERROR_CHECK(Thrust->setPWM(throttle));   
+                ESP_ERROR_CHECK(Thrust->setPWM(throttle));   
 
                 if (bl_comm.isClientConnecting())
                 {
@@ -142,11 +142,15 @@ static void pwm_init(){
     };
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper));
 
-    ESP_LOGI(SPP_TAG, "Connect timer and operator");
+    ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper, timer));
 
+    ESP_LOGI(TAG, "Enable and start timer");
+    ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
+    ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
+
     Thrust = new Motor(GPIO_NUM_21, oper, 1000, 2000);
-    Thrust->setTimer(timer);
+    Thrust->begin();
 }
 
 extern "C" void app_main(void)
@@ -157,18 +161,16 @@ extern "C" void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK( ret );
+
+    pwm_init();
     
     bl_comm.setCommandCb(command_cb);
     ESP_ERROR_CHECK(bl_comm.begin());
     ESP_LOGI(TAG, "Own address:[%s]", bl_comm.get_bt_addr());
 
     ESP_LOGI(TAG, "Create IMU");
- 
     i2c_master_init();
-    madgwick.begin(10);
-    
-   // pwm_init();
-
+    madgwick.begin(200);
     // タイマーを作成し、コールバック関数を設定します。
     TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(200), pdTRUE, (void *) 0, timer_callback);
     if (timer == NULL) {

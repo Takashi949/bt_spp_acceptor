@@ -10,16 +10,11 @@
 
 #define MOTOR_TAG "motor"
 
-Motor::Motor(int pin, mcpwm_oper_handle_t oper, uint16_t min_pulse, uint16_t max_pulse){
+Motor::Motor(int pin, mcpwm_oper_handle_t _oper, uint16_t min_pulse, uint16_t max_pulse){
     gpio_pin_num = pin;
     min_pulse_us = min_pulse;
     max_pulse_us = max_pulse;
-    oper = oper;
-}
-void Motor::setTimer(mcpwm_timer_handle_t timer){
-    timer = timer;
-}
-void Motor::setComparatorGenerator(mcpwm_oper_handle_t oper){
+    oper = _oper;
     ESP_LOGI(MOTOR_TAG, "Create comparator and generator from the operator");
 
     mcpwm_comparator_config_t comparator_config = {
@@ -31,7 +26,11 @@ void Motor::setComparatorGenerator(mcpwm_oper_handle_t oper){
         .gen_gpio_num = gpio_pin_num,
     };
     ESP_ERROR_CHECK(mcpwm_new_generator(oper, &generator_config, &generator));
-
+}
+void Motor::setTimer(mcpwm_timer_handle_t _timer){
+    timer = _timer;
+}
+void Motor::begin(){
     // set the initial compare value, so that the servo will spin to the center position
     ESP_LOGI(MOTOR_TAG, "Motor Braking ...");
     ESP_ERROR_CHECK(setPWM(0));
@@ -43,10 +42,6 @@ void Motor::setComparatorGenerator(mcpwm_oper_handle_t oper){
     // go low on compare threshold
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(generator,
                                                                 MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, comparator, MCPWM_GEN_ACTION_LOW)));
-
-    ESP_LOGI(MOTOR_TAG, "Enable and start timer");
-    ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
-    ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));        
 }
 esp_err_t Motor::setPWM(uint8_t percentage){
     esp_err_t err = ESP_OK;
