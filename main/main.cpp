@@ -50,24 +50,42 @@ LSM9DS1 imu;
 Madgwick madgwick;
 Motor *Thrust;
 
+uint16_t gx0 = 0, gy0 = 0, gz0 = 0;
+
+TaskHandle_t bl_telem_handle_t = NULL;
+//blでIMUデータを送信するのをノンブロッキングでやるためのタスク
+void telemetry_task(){
+    ESP_LOGI("Telem", "sending imu");
+    char msg[32];
+    float pitchDeg = madgwick.getPitch();
+    float rollDeg = madgwick.getRoll();
+    float YawDeg = madgwick.getYaw();
+    sprintf(msg, "imu,%3f,%3f,%3f", pitchDeg, rollDeg, YawDeg);
+    bl_comm.sendMsg(msg);
+    vTaskDelete(bl_telem_handle_t); // タスクを削除します。
+}
+// 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
+void bl_telemetry_callback(TimerHandle_t xTimer)
+{
+    if(bl_comm.isClientConnecting()){
+        // 新たなタスクを作成してメッセージを送信します。
+
+        ESP_LOGI("Timer", "telemetring");
+        xTaskCreate( (TaskFunction_t)telemetry_task, "TelemetryTask", 2048, NULL, 1, &bl_telem_handle_t);
+    }
+}
+
 // タイマーコールバック関数を定義します。
 void timer_callback(TimerHandle_t xTimer)
 {
+    ESP_LOGI("Timer", "reading.. imu");
     imu.readAccel();
     imu.readGyro();
     imu.readMag();
     imu.readTemp();
-    madgwick.update(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
+    madgwick.update(imu.calcGyro(imu.gx - gx0), imu.calcGyro(imu.gy - gy0), imu.calcGyro(imu.gz - gz0),
                     imu.calcAccel(imu.ax), imu.calcAccel(imu.ay), imu.calcAccel(imu.az),
                     imu.calcMag(imu.mx), imu.calcMag(imu.my), imu.calcMag(imu.mz));
-    if(bl_comm.isClientConnecting()){
-        char msg[32];
-        float pitchDeg = madgwick.getPitch();
-        float rollDeg = madgwick.getRoll();
-        float YawDeg = madgwick.getYaw();
-        sprintf(msg, "imu,%3f,%3f,%3f", pitchDeg, rollDeg, YawDeg);
-        bl_comm.sendMsg(msg);
-    }
 }
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
@@ -112,18 +130,41 @@ static void i2c_master_init(void)
         .sda_io_num = GPIO_NUM_18,
         .scl_io_num = GPIO_NUM_19,
         .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
+        .glitch_ignore_cnt = 5,
+        .intr_priority = 3,
+        .flags{
+            .enable_internal_pullup = false,
+        },
     };
     i2c_master_bus_handle_t bus_handle;
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
-    if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == false){
+    if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
+
+    //ジャイロセンサの初期値を取得
+    //whileループで平均をとる
+    int16_t gxt = 0, gyt = 0, gzt = 0;
+    ESP_LOGI("IMU", "calibrate start");
+    int calibStep = 1;
+    while(calibStep < 1000){
+        ESP_LOGI(TAG, "rec...");
+        imu.readGyro();
+        gxt = (gxt + imu.gx)/2;
+        gyt = (gyt + imu.gy)/2;
+        gzt = (gzt + imu.gz)/2;
+        calibStep ++;
+    }
+    ESP_LOGI("IMU", "calibrate FINISH");
+    gx0 = gxt;
+    gy0 = gyt;
+    gz0 = gzt;
 }
 
 static void pwm_init(){
+    //モーターのタスク優先度　最優先0
     ESP_LOGI(TAG, "Create timer and operator");
     mcpwm_timer_handle_t timer = NULL;
     mcpwm_timer_config_t timer_config = {
@@ -132,7 +173,7 @@ static void pwm_init(){
         .resolution_hz = SERVO_TIMEBASE_RESOLUTION_HZ,
         .count_mode = MCPWM_TIMER_COUNT_MODE_UP,
         .period_ticks = SERVO_TIMEBASE_PERIOD,
-        .intr_priority = 0,
+        .intr_priority = 2,
     };
     ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
 
@@ -170,9 +211,10 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Create IMU");
     i2c_master_init();
-    madgwick.begin(200);
+    const int IMU_sampling_ms = 20;
+    madgwick.begin(1000/IMU_sampling_ms);
     // タイマーを作成し、コールバック関数を設定します。
-    TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(200), pdTRUE, (void *) 0, timer_callback);
+    TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(IMU_sampling_ms), pdTRUE, (void *) 1, timer_callback);
     if (timer == NULL) {
         ESP_LOGE(TAG, "Failed to create timer.");
         return;
@@ -184,6 +226,19 @@ extern "C" void app_main(void)
         return;
     }
 
+    // 新たなタイマーを作成し、コールバック関数を設定します。
+    TimerHandle_t bl_telemetry = xTimerCreate("BL Telemetry", pdMS_TO_TICKS(200), pdTRUE, (void *) 2, bl_telemetry_callback);
+    if (bl_telemetry == NULL) {
+        ESP_LOGE(TAG, "Failed to create new timer.");
+        return;
+    }
+
+    // 新たなタイマーを開始します。
+    if (xTimerStart(bl_telemetry, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start new timer.");
+        return;
+    }
+
     // タスクをブロックします。
-    vTaskDelay(portMAX_DELAY);
+    //vTaskDelay(portMAX_DELAY);
 }

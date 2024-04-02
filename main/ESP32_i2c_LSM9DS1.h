@@ -388,24 +388,7 @@ protected:
 	//	- INT_CTRL_REG_M = 0x09: Interrupt active-high. Enable interrupts.
 	void initMag();
 
-	// gReadBytes() -- Reads a number of bytes -- beginning at an address
-	// and incrementing from there -- from the gyroscope.
-	// Input:
-	// 	- subAddress = Register to be read from.
-	// 	- * dest = A pointer to an array of uint8_t's. Values read will be
-	//		stored in here on return.
-	//	- count = The number of bytes to be read.
-	// Output: No value is returned, but the `dest` array will store
-	// 	the data read upon exit.
-	uint8_t mReadBytes(uint8_t subAddress, uint8_t * dest, uint8_t count);
-	
-	// gWriteByte() -- Write a byte to a register in the gyroscope.
-	// Input:
-	//	- subAddress = Register to be written to.
-	//	- data = data to be written to the register.
-	void mWriteByte(uint8_t subAddress, uint8_t data);
-	
-	// xmReadBytes() -- Reads a number of bytes -- beginning at an address
+	// ReadBytes() -- Reads a number of bytes -- beginning at an address
 	// and incrementing from there -- from the accelerometer/magnetometer.
 	// Input:
 	// 	- subAddress = Register to be read from.
@@ -414,13 +397,13 @@ protected:
 	//	- count = The number of bytes to be read.
 	// Output: No value is returned, but the `dest` array will store
 	// 	the data read upon exit.
-	uint8_t xgReadBytes(uint8_t subAddress, uint8_t * dest, uint8_t count);
+	uint8_t ReadBytes(i2c_master_dev_handle_t dev_handle, uint8_t subAddress, uint8_t * dest, uint8_t count);
 	
-	// xmWriteByte() -- Write a byte to a register in the accel/mag sensor.
+	// WriteByte() -- Write a byte to a register in the accel/mag sensor.
 	// Input:
 	//	- subAddress = Register to be written to.
 	//	- data = data to be written to the register.
-	void xgWriteByte(uint8_t subAddress, uint8_t data);
+	void WriteByte(i2c_master_dev_handle_t dev_handle, uint8_t subAddress, uint8_t data);
 	
 	// calcgRes() -- Calculate the resolution of the gyroscope.
 	// This function will set the value of the gRes variable. gScale must
@@ -441,27 +424,8 @@ protected:
 	// Helper Functions //
 	//////////////////////
 	void constrainScales();
-	
-	///////////////////
-	// I2C Functions //
-	///////////////////
-	
-	// I2CwriteByte() -- Write a byte out of I2C to a register in the device
-	// Input:
-	//	- address = The 7-bit I2C address of the slave device.
-	//	- subAddress = The register to be written to.
-	//	- data = Byte to be written to the register.
-	void I2CwriteByte(i2c_master_dev_handle_t dev_handle, uint8_t subAddress, uint8_t data);
 
-	// I2CreadBytes() -- Read a series of bytes, starting at a register via SPI
-	// Input:
-	//	- address = The 7-bit I2C address of the slave device.
-	//	- subAddress = The register to begin reading.
-	// 	- * dest = Pointer to an array where we'll store the readings.
-	//	- count = Number of registers to be read.
-	// Output: No value is returned by the function, but the registers read are
-	// 		all stored in the *dest array given.
-	uint8_t I2CreadBytes(i2c_master_dev_handle_t dev_handle, uint8_t subAddress, uint8_t * dest, uint8_t count);
+
 };
 
 #endif // SFE_LSM9DS1_H //
