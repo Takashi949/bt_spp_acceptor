@@ -243,7 +243,7 @@ extern "C" void app_main(void)
     }
 
     // 新たなタイマーを作成し、コールバック関数を設定します。
-    TimerHandle_t bl_telemetry = xTimerCreate("BL Telemetry", pdMS_TO_TICKS(300), pdTRUE, (void *) 2, bl_telemetry_callback);
+    TimerHandle_t bl_telemetry = xTimerCreate("BL Telemetry", pdMS_TO_TICKS(100), pdTRUE, (void *) 2, bl_telemetry_callback);
     if (bl_telemetry == NULL) {
         ESP_LOGE(TAG, "Failed to create new timer.");
         return;
