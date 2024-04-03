@@ -56,7 +56,7 @@ void LSM9DS1::init()
 	settings.gyro.enableY = true;
 	settings.gyro.enableZ = true;
 	// gyro scale can be 245, 500, or 2000
-	settings.gyro.scale = 245;
+	settings.gyro.scale = 2000;
 	// gyro sample rate: value between 1-6
 	// 1 = 14.9    4 = 238
 	// 2 = 59.5    5 = 476
@@ -76,14 +76,14 @@ void LSM9DS1::init()
 	settings.gyro.flipY = false;
 	settings.gyro.flipZ = false;
 	settings.gyro.orientation = 0;
-	settings.gyro.latchInterrupt = true;
+	settings.gyro.latchInterrupt = false;
 
 	settings.accel.enabled = true;
 	settings.accel.enableX = true;
 	settings.accel.enableY = true;
 	settings.accel.enableZ = true;
 	// accel scale can be 2, 4, 8, or 16
-	settings.accel.scale = 2;
+	settings.accel.scale = 16;
 	// accel sample rate can be 1-6
 	// 1 = 10 Hz    4 = 238 Hz
 	// 2 = 50 Hz    5 = 476 Hz
@@ -103,7 +103,7 @@ void LSM9DS1::init()
 
 	settings.mag.enabled = true;
 	// mag scale can be 4, 8, 12, or 16
-	settings.mag.scale = 4;
+	settings.mag.scale = 16;
 	// mag data rate can be 0-7
 	// 0 = 0.625 Hz  4 = 10 Hz
 	// 1 = 1.25 Hz   5 = 20 Hz
@@ -1070,7 +1070,7 @@ uint8_t LSM9DS1::ReadBytes(i2c_master_dev_handle_t dev_handle, uint8_t subAddres
 {
 	// Whether we're using I2C , read multiple bytes
 	if (settings.device.commInterface == IMU_MODE_I2C){
-		esp_err_t err = i2c_master_transmit_receive(dev_handle, &subAddress, 1, dest, sizeof(dest), I2C_trans_timeout_ms);
+		esp_err_t err = i2c_master_transmit_receive(dev_handle, &subAddress, 1, dest, count, I2C_trans_timeout_ms);
 		if(err == ESP_OK){
 			return count;
 		}
