@@ -51,6 +51,8 @@ Madgwick madgwick;
 Motor *Thrust;
 
 uint16_t gx0 = 0, gy0 = 0, gz0 = 0;
+uint16_t ax0 = 0, ay0 = 0, az0 = 0;
+uint16_t mx0 = 0, my0 = 0, mz0 = 0;
 
 TaskHandle_t bl_telem_handle_t = NULL;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
@@ -84,8 +86,8 @@ void timer_callback(TimerHandle_t xTimer)
     imu.readMag();
     imu.readTemp();
     madgwick.update(imu.calcGyro(imu.gx - gx0), imu.calcGyro(imu.gy - gy0), imu.calcGyro(imu.gz - gz0),
-                    imu.calcAccel(imu.ax), imu.calcAccel(imu.ay), imu.calcAccel(imu.az),
-                    imu.calcMag(imu.mx), imu.calcMag(imu.my), imu.calcMag(imu.mz));
+                    imu.calcAccel(imu.ax ax0), imu.calcAccel(imu.ay -ay0), imu.calcAccel(imu.az -az0),
+                    imu.calcMag(imu.mx - mx0), imu.calcMag(imu.my - my0), imu.calcMag(imu.mz - mz0));
 }
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
@@ -147,20 +149,33 @@ static void i2c_master_init(void)
     //ジャイロセンサの初期値を取得
     //whileループで平均をとる
     int16_t gxt = 0, gyt = 0, gzt = 0;
+    int16_t axt = 0, ayt = 0, azt = 0;
+    int16_t mxt = 0, myt = 0, mzt =0;
     ESP_LOGI("IMU", "calibrate start");
-    int calibStep = 1;
-    while(calibStep < 1000){
+    
+    for (uint16_t i = 0; i < 1000; i++){
         ESP_LOGI(TAG, "rec...");
         imu.readGyro();
         gxt = (gxt + imu.gx)/2;
         gyt = (gyt + imu.gy)/2;
         gzt = (gzt + imu.gz)/2;
-        calibStep ++;
+
+        imu.readAccel();
+        axt = (axt + imu.ax)/2;
+        ayt = (ayt + imu.ay)/2;
+        azt = (azt + imu.az)/2;
+
+        imu.readMag();
+        mxt = (mxt + imu.mx)/2;
+        myt = (myt + imu.my)/2;
+        mzt = (mzt + imu.mz)/2;
     }
+    
+    gx0 = gxt; gy0 = gyt; gz0 = gzt;
+    ax0 = axt; ay0 = ayt; az0 = azt;
+    mx0 = mxt; my0 = myt; mz0 = mzt;
+
     ESP_LOGI("IMU", "calibrate FINISH");
-    gx0 = gxt;
-    gy0 = gyt;
-    gz0 = gzt;
 }
 
 static void pwm_init(){
