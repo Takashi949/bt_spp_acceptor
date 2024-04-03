@@ -50,9 +50,9 @@ LSM9DS1 imu;
 Madgwick madgwick;
 Motor *Thrust;
 
-uint16_t gx0 = 0, gy0 = 0, gz0 = 0;
-uint16_t ax0 = 0, ay0 = 0, az0 = 0;
-uint16_t mx0 = 0, my0 = 0, mz0 = 0;
+int16_t gx0 = 0, gy0 = 0, gz0 = 0;
+int16_t ax0 = 0, ay0 = 0, az0 = 0;
+int16_t mx0 = 0, my0 = 0, mz0 = 0;
 
 TaskHandle_t bl_telem_handle_t = NULL;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
@@ -78,15 +78,17 @@ void bl_telemetry_callback(TimerHandle_t xTimer)
 }
 
 // タイマーコールバック関数を定義します。
-void timer_callback(TimerHandle_t xTimer)
+void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 {
-    ESP_LOGI("Timer", "reading.. imu");
+    //ESP_LOGI("Timer", "reading.. imu");
+    
     imu.readAccel();
     imu.readGyro();
     imu.readMag();
     imu.readTemp();
+
     madgwick.update(imu.calcGyro(imu.gx - gx0), imu.calcGyro(imu.gy - gy0), imu.calcGyro(imu.gz - gz0),
-                    imu.calcAccel(imu.ax ax0), imu.calcAccel(imu.ay -ay0), imu.calcAccel(imu.az -az0),
+                    imu.calcAccel(imu.ax -ax0), imu.calcAccel(imu.ay - ay0), imu.calcAccel(imu.az - az0),
                     imu.calcMag(imu.mx - mx0), imu.calcMag(imu.my - my0), imu.calcMag(imu.mz - mz0));
 }
 
@@ -132,10 +134,10 @@ static void i2c_master_init(void)
         .sda_io_num = GPIO_NUM_18,
         .scl_io_num = GPIO_NUM_19,
         .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 5,
+        .glitch_ignore_cnt = 4,
         .intr_priority = 3,
         .flags{
-            .enable_internal_pullup = false,
+            .enable_internal_pullup = true,
         },
     };
     i2c_master_bus_handle_t bus_handle;
@@ -150,10 +152,10 @@ static void i2c_master_init(void)
     //whileループで平均をとる
     int16_t gxt = 0, gyt = 0, gzt = 0;
     int16_t axt = 0, ayt = 0, azt = 0;
-    int16_t mxt = 0, myt = 0, mzt =0;
+    int16_t mxt = 0, myt = 0, mzt = 0;
     ESP_LOGI("IMU", "calibrate start");
-    
-    for (uint16_t i = 0; i < 1000; i++){
+    for (uint16_t calibStep = 0; calibStep < 1000; calibStep++)
+    {
         ESP_LOGI(TAG, "rec...");
         imu.readGyro();
         gxt = (gxt + imu.gx)/2;
@@ -170,11 +172,10 @@ static void i2c_master_init(void)
         myt = (myt + imu.my)/2;
         mzt = (mzt + imu.mz)/2;
     }
-    
-    gx0 = gxt; gy0 = gyt; gz0 = gzt;
+    //無い方がいい
+/*     gx0 = gxt; gy0 = gyt; gz0 = gzt;
     ax0 = axt; ay0 = ayt; az0 = azt;
-    mx0 = mxt; my0 = myt; mz0 = mzt;
-
+    mx0 = mxt; my0 = myt; mz0 = mzt; */
     ESP_LOGI("IMU", "calibrate FINISH");
 }
 
@@ -226,7 +227,7 @@ extern "C" void app_main(void)
 
     ESP_LOGI(TAG, "Create IMU");
     i2c_master_init();
-    const int IMU_sampling_ms = 20;
+    const int IMU_sampling_ms = 50;
     madgwick.begin(1000/IMU_sampling_ms);
     // タイマーを作成し、コールバック関数を設定します。
     TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(IMU_sampling_ms), pdTRUE, (void *) 1, timer_callback);
@@ -242,7 +243,7 @@ extern "C" void app_main(void)
     }
 
     // 新たなタイマーを作成し、コールバック関数を設定します。
-    TimerHandle_t bl_telemetry = xTimerCreate("BL Telemetry", pdMS_TO_TICKS(200), pdTRUE, (void *) 2, bl_telemetry_callback);
+    TimerHandle_t bl_telemetry = xTimerCreate("BL Telemetry", pdMS_TO_TICKS(300), pdTRUE, (void *) 2, bl_telemetry_callback);
     if (bl_telemetry == NULL) {
         ESP_LOGE(TAG, "Failed to create new timer.");
         return;
@@ -255,5 +256,5 @@ extern "C" void app_main(void)
     }
 
     // タスクをブロックします。
-    //vTaskDelay(portMAX_DELAY);
+    vTaskDelay(portMAX_DELAY);
 }
