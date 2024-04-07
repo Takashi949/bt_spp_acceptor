@@ -12,9 +12,12 @@ class Motor{
     uint16_t min_pulse_us;
     uint16_t max_pulse_us;
     mcpwm_timer_handle_t timer;
+    uint32_t percent = 0;
+    uint32_t oldPercent = 0;
 public:
     Motor(int pin, mcpwm_oper_handle_t oper, uint16_t min_pulse, uint16_t max_pulse);
     void setTimer(mcpwm_timer_handle_t _timer);
     void begin();
+    uint8_t getPercent();
     esp_err_t setPWM(uint8_t percentage);
 };

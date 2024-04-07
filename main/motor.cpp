@@ -43,10 +43,16 @@ void Motor::begin(){
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(generator,
                                                                 MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, comparator, MCPWM_GEN_ACTION_LOW)));
 }
+uint8_t Motor::getPercent(){
+    return percent;
+}
 esp_err_t Motor::setPWM(uint8_t percentage){
     esp_err_t err = ESP_OK;
     if((err = mcpwm_comparator_set_compare_value(comparator, (max_pulse_us - min_pulse_us)/100 * percentage + min_pulse_us)) != ESP_OK){
         ESP_LOGE(MOTOR_TAG, "%s", esp_err_to_name(err));
+        return err;
     }
-    return err;
+    oldPercent = percent;
+    percent = percentage;
+    return ESP_OK;
 }

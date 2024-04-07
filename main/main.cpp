@@ -37,9 +37,6 @@
 
 #define TAG "ESP_SPP_DRONE"
 
-uint32_t throttle = 0;
-uint32_t oldThrottle = 0;
-
 Bl_comm bl_comm;
 void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
 uint32_t Bl_comm::clientHandle = 0;
@@ -48,7 +45,7 @@ bool Bl_comm::isWriting = false;
 
 LSM9DS1 imu;
 Madgwick madgwick;
-Motor *Thrust;
+Motor *Thrust, *ServoSG, *ServoFS;
 
 int16_t gx0 = 0, gy0 = 0, gz0 = 0;
 int16_t ax0 = 0, ay0 = 0, az0 = 0;
@@ -99,21 +96,58 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
         if(val <= 100){
-            throttle = val;
-            if(oldThrottle != throttle){
+            if(Thrust->getPercent() != val){
                 //set the throttle value
-                ESP_ERROR_CHECK(Thrust->setPWM(throttle));   
-
+                ESP_ERROR_CHECK(Thrust->setPWM(val));   
+                //もしBlueToothがつながってたら送信する
                 if (bl_comm.isClientConnecting())
                 {
                     char msg[32] = "";
-                    sprintf(msg, "Throttole %ld", throttle);
+                    sprintf(msg, "Throttole %d", Thrust->getPercent());
                     ESP_LOGI(TAG, "Throttle value Write to SPP.");
                     ESP_LOGI(TAG, "%s", (uint8_t*)msg);
 
                     bl_comm.sendMsg(msg);
                 }
-                oldThrottle = throttle;
+            }
+        }
+    }else if(msg[0] == 'c' && msg[1] == 'r'){
+        //char*から三桁の数字に変換
+        uint8_t val = msg[2];
+        if(val <= 100){
+            if(ServoSG->getPercent() != val){
+                //set the Angle value
+                ESP_ERROR_CHECK(ServoSG->setPWM(val));   
+                //もしBlueToothがつながってたら送信する
+                if (bl_comm.isClientConnecting())
+                {
+                    char msg[32] = "";
+                    sprintf(msg, "ServoSG %d", ServoSG->getPercent());
+                    ESP_LOGI(TAG, "ServoSG value Write to SPP.");
+                    ESP_LOGI(TAG, "%s", (uint8_t*)msg);
+
+                    bl_comm.sendMsg(msg);
+                }
+            }
+        }
+    }else if(msg[0] == 'c' && msg[1] == 'l'){
+        //char*から三桁の数字に変換
+        uint8_t val = msg[2];
+        if(val <= 100){
+            if(ServoFS->getPercent() != val){
+                //set the Angle value
+                //向きが反対だから100-val注意
+                ESP_ERROR_CHECK(ServoFS->setPWM(100-val));   
+                //もしBlueToothがつながってたら送信する
+                if (bl_comm.isClientConnecting())
+                {
+                    char msg[32] = "";
+                    sprintf(msg, "ServoFS %d", ServoFS->getPercent());
+                    ESP_LOGI(TAG, "ServoFS value Write to SPP.");
+                    ESP_LOGI(TAG, "%s", (uint8_t*)msg);
+
+                    bl_comm.sendMsg(msg);
+                }
             }
         }
     }
@@ -208,6 +242,19 @@ static void pwm_init(){
 
     Thrust = new Motor(GPIO_NUM_21, oper, 1000, 2000);
     Thrust->begin();
+
+    //servo
+    mcpwm_oper_handle_t operServo = NULL;
+    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &operServo));
+
+    ESP_LOGI(TAG, "Connect timer and operator");
+    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo, timer));
+    ServoSG = new Motor(GPIO_NUM_2, operServo, 500, 2400);
+    ServoFS = new Motor(GPIO_NUM_0, operServo, 500, 2500);
+    ServoSG->begin();
+    ServoFS->begin();
+    ServoSG->setPWM(50);
+    ServoFS->setPWM(50);
 }
 
 extern "C" void app_main(void)
