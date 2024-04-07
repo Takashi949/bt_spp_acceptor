@@ -30,8 +30,6 @@
 
 #include "motor.h"
 
-// Please consult the datasheet of your servo before changing the following parameters
-
 #define SERVO_TIMEBASE_RESOLUTION_HZ 1000000  // 1MHz, 1us per tick
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
 
@@ -91,24 +89,16 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
-    
+    char SPPmsg[32] = "";
+
     if(msg[0] == 'c' && msg[1] == 't'){
         //char*から三桁の数字に変換
-        uint8_t val = msg[2];
+        uint8_t val = msg[2];   
         if(val <= 100){
             if(Thrust->getPercent() != val){
                 //set the throttle value
                 ESP_ERROR_CHECK(Thrust->setPWM(val));   
-                //もしBlueToothがつながってたら送信する
-                if (bl_comm.isClientConnecting())
-                {
-                    char msg[32] = "";
-                    sprintf(msg, "Throttole %d", Thrust->getPercent());
-                    ESP_LOGI(TAG, "Throttle value Write to SPP.");
-                    ESP_LOGI(TAG, "%s", (uint8_t*)msg);
-
-                    bl_comm.sendMsg(msg);
-                }
+                sprintf(SPPmsg, "Throttole %d", Thrust->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'r'){
@@ -117,17 +107,8 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         if(val <= 100){
             if(ServoSG->getPercent() != val){
                 //set the Angle value
-                ESP_ERROR_CHECK(ServoSG->setPWM(val));   
-                //もしBlueToothがつながってたら送信する
-                if (bl_comm.isClientConnecting())
-                {
-                    char msg[32] = "";
-                    sprintf(msg, "ServoSG %d", ServoSG->getPercent());
-                    ESP_LOGI(TAG, "ServoSG value Write to SPP.");
-                    ESP_LOGI(TAG, "%s", (uint8_t*)msg);
-
-                    bl_comm.sendMsg(msg);
-                }
+                ESP_ERROR_CHECK(ServoSG->setPWM(val));
+                sprintf(SPPmsg, "ServoSG %d", ServoSG->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'l'){
@@ -138,26 +119,22 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
                 //set the Angle value
                 //向きが反対だから100-val注意
                 ESP_ERROR_CHECK(ServoFS->setPWM(100-val));   
-                //もしBlueToothがつながってたら送信する
-                if (bl_comm.isClientConnecting())
-                {
-                    char msg[32] = "";
-                    sprintf(msg, "ServoFS %d", ServoFS->getPercent());
-                    ESP_LOGI(TAG, "ServoFS value Write to SPP.");
-                    ESP_LOGI(TAG, "%s", (uint8_t*)msg);
-
-                    bl_comm.sendMsg(msg);
-                }
+                sprintf(SPPmsg, "ServoFS %d", ServoFS->getPercent());
             }
         }
     }
     else {
-        if (bl_comm.isClientConnecting())
-        {
             ESP_LOGI(TAG, "Unknow command Recieved.");
-            char *msg = "Unknow command Recieved.";
-            bl_comm.sendMsg(msg);
-        }
+            sprintf(SPPmsg, "Unknow command Recieved.");
+    }
+
+    //もしBlueToothがつながってたら送信する
+    if (bl_comm.isClientConnecting())
+    {
+        ESP_LOGI(TAG, "MSG Write to SPP.");
+        ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
+
+        bl_comm.sendMsg(SPPmsg);
     }
 }
 
