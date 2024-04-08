@@ -29,6 +29,7 @@
 #include "MadgwickAHRS.h"
 
 #include "motor.h"
+#include "Motion_control.h"
 
 #define SERVO_TIMEBASE_RESOLUTION_HZ 1000000  // 1MHz, 1us per tick
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
@@ -41,23 +42,17 @@ uint32_t Bl_comm::clientHandle = 0;
 bool Bl_comm::isConnecting = false;
 bool Bl_comm::isWriting = false;
 
-LSM9DS1 imu;
-Madgwick madgwick;
 Motor *Thrust, *ServoSG, *ServoFS;
-
-int16_t gx0 = 0, gy0 = 0, gz0 = 0;
-int16_t ax0 = 0, ay0 = 0, az0 = 0;
-int16_t mx0 = 0, my0 = 0, mz0 = 0;
+Motion_control motion;
 
 TaskHandle_t bl_telem_handle_t = NULL;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
 void telemetry_task(){
     ESP_LOGI("Telem", "sending imu");
     char msg[32];
-    float pitchDeg = madgwick.getPitch();
-    float rollDeg = madgwick.getRoll();
-    float YawDeg = madgwick.getYaw();
-    sprintf(msg, "imu,%3f,%3f,%3f", pitchDeg, rollDeg, YawDeg);
+    float pry[3];
+    motion.getPRY(pry);
+    sprintf(msg, "imu,%3f,%3f,%3f", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
@@ -76,15 +71,7 @@ void bl_telemetry_callback(TimerHandle_t xTimer)
 void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 {
     //ESP_LOGI("Timer", "reading.. imu");
-    
-    imu.readAccel();
-    imu.readGyro();
-    imu.readMag();
-    imu.readTemp();
-
-    madgwick.update(imu.calcGyro(imu.gx - gx0), imu.calcGyro(imu.gy - gy0), imu.calcGyro(imu.gz - gz0),
-                    imu.calcAccel(imu.ax -ax0), imu.calcAccel(imu.ay - ay0), imu.calcAccel(imu.az - az0),
-                    imu.calcMag(imu.mx - mx0), imu.calcMag(imu.my - my0), imu.calcMag(imu.mz - mz0));
+    motion.update();
 }
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
@@ -124,8 +111,8 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         }
     }
     else {
-            ESP_LOGI(TAG, "Unknow command Recieved.");
-            sprintf(SPPmsg, "Unknow command Recieved.");
+        ESP_LOGI(TAG, "Unknow command Recieved.");
+        sprintf(SPPmsg, "Unknow command Recieved.");
     }
 
     //もしBlueToothがつながってたら送信する
@@ -138,7 +125,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     }
 }
 
-static void i2c_master_init(void)
+static void i2c_master_init(float sampleFreq)
 {
     i2c_master_bus_config_t bus_conf = {
         .i2c_port = -1,
@@ -155,39 +142,7 @@ static void i2c_master_init(void)
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
-    if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
-        ESP_LOGE(TAG, "imu initialize faile");
-    }
-
-    //ジャイロセンサの初期値を取得
-    //whileループで平均をとる
-    int16_t gxt = 0, gyt = 0, gzt = 0;
-    int16_t axt = 0, ayt = 0, azt = 0;
-    int16_t mxt = 0, myt = 0, mzt = 0;
-    ESP_LOGI("IMU", "calibrate start");
-    for (uint16_t calibStep = 0; calibStep < 1000; calibStep++)
-    {
-        ESP_LOGI(TAG, "rec...");
-        imu.readGyro();
-        gxt = (gxt + imu.gx)/2;
-        gyt = (gyt + imu.gy)/2;
-        gzt = (gzt + imu.gz)/2;
-
-        imu.readAccel();
-        axt = (axt + imu.ax)/2;
-        ayt = (ayt + imu.ay)/2;
-        azt = (azt + imu.az)/2;
-
-        imu.readMag();
-        mxt = (mxt + imu.mx)/2;
-        myt = (myt + imu.my)/2;
-        mzt = (mzt + imu.mz)/2;
-    }
-    //無い方がいい
-/*     gx0 = gxt; gy0 = gyt; gz0 = gzt;
-    ax0 = axt; ay0 = ayt; az0 = azt;
-    mx0 = mxt; my0 = myt; mz0 = mzt; */
-    ESP_LOGI("IMU", "calibrate FINISH");
+    motion.begin(sampleFreq, bus_handle);
 }
 
 static void pwm_init(){
@@ -250,9 +205,8 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Own address:[%s]", bl_comm.get_bt_addr());
 
     ESP_LOGI(TAG, "Create IMU");
-    i2c_master_init();
     const int IMU_sampling_ms = 50;
-    madgwick.begin(1000/IMU_sampling_ms);
+    i2c_master_init(1000/IMU_sampling_ms);
     // タイマーを作成し、コールバック関数を設定します。
     TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(IMU_sampling_ms), pdTRUE, (void *) 1, timer_callback);
     if (timer == NULL) {
