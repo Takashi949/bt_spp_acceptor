@@ -46,14 +46,20 @@ Motor *Thrust, *ServoSG, *ServoFS;
 Motion_control motion;
 
 TaskHandle_t bl_telem_handle_t = NULL;
+bool isControlEnable = false;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
 void telemetry_task(){
-    ESP_LOGI("Telem", "sending imu");
+    //ESP_LOGI("Telem", "sending imu");
     char msg[32];
     float pry[3];
     motion.getPRY(pry);
     sprintf(msg, "imu,%3f,%3f,%3f", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
+
+    if(isControlEnable){
+        sprintf(msg, "Throttole %d", Thrust->getPercent());
+        bl_comm.sendMsg(msg);
+    }
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
@@ -62,7 +68,7 @@ void bl_telemetry_callback(TimerHandle_t xTimer)
     if(bl_comm.isClientConnecting()){
         // 新たなタスクを作成してメッセージを送信します。
 
-        ESP_LOGI("Timer", "telemetring");
+        //ESP_LOGI("Timer", "telemetring");
         xTaskCreate( (TaskFunction_t)telemetry_task, "TelemetryTask", 2048, NULL, 1, &bl_telem_handle_t);
     }
 }
@@ -72,6 +78,10 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 {
     //ESP_LOGI("Timer", "reading.. imu");
     motion.update();
+    if(isControlEnable){
+        motion.calcU();
+        Thrust->setPWM(motion.u);
+    }
 }
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
@@ -109,6 +119,14 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
                 sprintf(SPPmsg, "ServoFS %d", ServoFS->getPercent());
             }
         }
+    }else if(msg[0] == 'b' && msg[1] == 'c'){
+        //制御開始
+        isControlEnable = true;
+        sprintf(SPPmsg, "Begin Control");
+    }else if(msg[0] == 'e' && msg[1] == 'c'){
+        //制御終了
+        isControlEnable = false;
+        sprintf(SPPmsg, "End Control");
     }
     else {
         ESP_LOGI(TAG, "Unknow command Recieved.");

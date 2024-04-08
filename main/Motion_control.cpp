@@ -8,6 +8,7 @@ void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle)
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
+	dt = 1.0f/sampleFreq;
 	madgwick.begin(sampleFreq);
 }
 void Motion_control::Sensor2Inert(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
@@ -28,6 +29,13 @@ void Motion_control::update(){
 				imu.calcAccel(imu.ax - a0[0]),  imu.calcAccel(imu.ay - a0[1]),  imu.calcAccel(imu.az - a0[2]),
 				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
     madgwick.update(g[0], g[1], g[2], a[0], a[1], a[2], m[0], m[1], g[2]);
+	//z方向速度だけやってみる
+	v[2] = v[2] + a[2]*dt;
+}
+void Motion_control::calcU(){
+	u = a[2]*1.0f*100.0f / 1.69f  + v[2] * (240.0f - pow(240.0f, 2.0f) * mass* 100.0f / 1.69f );
+	if(u < 0.0f)u = 0.0f;
+	if(u > 100.0f)u = 100.0f;
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();
