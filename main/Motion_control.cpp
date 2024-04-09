@@ -30,10 +30,13 @@ void Motion_control::update(){
 				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
     madgwick.update(g[0], g[1], g[2], a[0], a[1], a[2], m[0], m[1], g[2]);
 	//z方向速度だけやってみる
+	v[0] = v[0] + a[0]*dt;
+	v[1] = v[1] + a[1]*dt;
 	v[2] = v[2] + a[2]*dt;
 }
 void Motion_control::calcU(){
-	u = a[2]*1.0f*100.0f / 1.69f  + v[2] * (240.0f - pow(240.0f, 2.0f) * mass* 100.0f / 1.69f );
+	//u = a[2]*1.0f*100.0f / 1.69f  + v[2] * (240.0f - pow(240.0f, 2.0f) * mass* 100.0f / 1.69f );
+	u = (a[2] + 9.80)*100.0f/1.69 * mass;
 	if(u < 0.0f)u = 0.0f;
 	if(u > 100.0f)u = 100.0f;
 }
