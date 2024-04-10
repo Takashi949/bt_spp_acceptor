@@ -35,10 +35,16 @@ void Motion_control::update(){
 	v[2] = v[2] + a[2]*dt;
 }
 void Motion_control::calcU(){
-	//u = a[2]*1.0f*100.0f / 1.69f  + v[2] * (240.0f - pow(240.0f, 2.0f) * mass* 100.0f / 1.69f );
-	u = (a[2] + 9.80)*100.0f/1.69 * mass;
-	if(u < 0.0f)u = 0.0f;
-	if(u > 100.0f)u = 100.0f;
+	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];
+	//u = (a[2] + 9.80)*100.0f/1.69 * mass;
+	u[0] = a[2] * -105.3f;
+	u[1] = 71.1 * g[2];
+	u[2] = -71.1 * g[2];
+	for (uint8_t i = 0; i < 3; i++)
+	{	
+		if(u[i] < 0.0f)u[i] = 0.0f;
+		if(u[i] > 100.0f)u[i] = 100.0f;
+	}
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();

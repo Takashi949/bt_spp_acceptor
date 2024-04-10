@@ -80,7 +80,9 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
     motion.update();
     if(isControlEnable){
         motion.calcU();
-        Thrust->setPWM(motion.u);
+        Thrust->setPWM(motion.u[0]);
+        ServoFS->setPWM(motion.u[1]);
+        ServoSG->setPWM(motion.u[2]);
     }
 }
 
