@@ -7,6 +7,7 @@ class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
 public:
+	float agrav = 0.0;
 	float v[3] = {0};
 	float a0[3] = {0};
 	float g0[3] = {0};
@@ -15,6 +16,8 @@ public:
 	float g[3] = {0, 0, 0};
 	float m[3] = {0, 0, 0};
 	float u[3] = {0.0f};
+	float thetadot[3] = {0};
+	float x[3] = {0};
 	float dt = 10000.0f;
 	/* 	{
 		{cos30, -sin30, 0},
@@ -57,7 +60,12 @@ public:
 	void update();
     void calcU();
     void getPRY(float *retbuf);
+    void calib();
     void correctInitValue(uint16_t num_loop);
-	float transM[3][3] = {{1.7320508 / 2.0, -1.0 / 2.0, 0}, {-1.0 / 2.0, -1.7320508 / 2.0, 0.0}, {0.0, 0.0, 1.0}};
+    float transM[3][3] = {
+		{1.7320508 / 2.0, -1.0 / 2.0, 0.0},
+		{-1.0 / 2.0, -1.7320508 / 2.0, 0.0},
+		{0.0, 0.0, 1.0}
+	};
 	void Sensor2Inert(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
 };

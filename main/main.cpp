@@ -53,13 +53,21 @@ void telemetry_task(){
     char msg[32];
     float pry[3];
     motion.getPRY(pry);
-    sprintf(msg, "imu,%3f,%3f,%3f", pry[0], pry[1], pry[2]);
+    sprintf(msg, "imu,%4.f,%4.f,%4.f,", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
 
-    if(isControlEnable){
-        sprintf(msg, "Throttole %d", Thrust->getPercent());
-        bl_comm.sendMsg(msg);
-    }
+    sprintf(msg, "Throttle %d", Thrust->getPercent());
+    bl_comm.sendMsg(msg);
+
+    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x[0], motion.x[1], motion.x[2]);
+    bl_comm.sendMsg(msg); 
+    
+    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.v[0], motion.v[1], motion.v[2]);
+    bl_comm.sendMsg(msg); 
+
+    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.a[0], motion.a[1], motion.a[2]);
+    bl_comm.sendMsg(msg); 
+
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
@@ -163,10 +171,11 @@ static void i2c_master_init(float sampleFreq)
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
     motion.begin(sampleFreq, bus_handle);
+    //motion.correctInitValue(100);
 }
 
 static void pwm_init(){
-    //モーターのタスク優先度　最優先0
+    //モーターのタスク優先度　最優先
     ESP_LOGI(TAG, "Create timer and operator");
     mcpwm_timer_handle_t timer = NULL;
     mcpwm_timer_config_t timer_config = {
