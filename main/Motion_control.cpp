@@ -11,15 +11,13 @@ void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle)
 	dt = 1.0f/sampleFreq;
 	madgwick.begin(sampleFreq);
 }
-void Motion_control::Sensor2Inert(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
+void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	for(uint8_t i = 0; i < 3; i++){
 		g[i] = transM[i][0]*gx + transM[i][1]*gy + transM[i][2]*gz;
-		a[i] = transM[i][0]*ax + transM[i][1]*ay + transM[i][2]*az * 9.80; 
-		m[i] = transM[i][0]*mx + transM[i][1]*my + transM[i][2]*mz * 0.017453; // 2pi/360 
+		//姿勢判定用 重力込みの加速度
+		a_grav[i] = transM[i][0]*ax + transM[i][1]*ay + transM[i][2]*az;
+		m[i] = transM[i][0]*mx + transM[i][1]*my + transM[i][2]*mz; 
 	}
-	//姿勢判定用
-	agrav = a[2];
-	a[2]
 }
 void Motion_control::update(){
 	imu.readTemp();
@@ -27,9 +25,9 @@ void Motion_control::update(){
     imu.readGyro();
     imu.readMag();
 	
-	//姿勢を変換数する
-	Sensor2Inert(imu.calcGyro(imu.gx - g0[0]), imu.calcGyro(imu.gy - g0[1]), imu.calcGyro(imu.gz - g0[2]),
-				imu.calcAccel(imu.ax - a0[0]),  imu.calcAccel(imu.ay - a0[1]),  imu.calcAccel(imu.az - a0[2]),
+	//姿勢を変換数する+座標変換
+	Sensor2Body(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
+				imu.calcAccel(imu.ax) * gravity_c, imu.calcAccel(imu.ay) * gravity_c,  imu.calcAccel(imu.az) * gravity_c,
 				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
 	
 	//微分計算のため前の値を保存
@@ -39,7 +37,31 @@ void Motion_control::update(){
 	dtheta[2] = madgwick.getYaw();
     
 	//azだけ重力加速度込みの値を入れる
-	madgwick.update(g[0], g[1], g[2], a[0], a[1], agrav, m[0], m[1], g[2]);
+	madgwick.update(g[0], g[1], g[2],
+					a_grav[0], a_grav[1], a_grav[2],
+					m[0], m[1], m[2]);
+
+	//姿勢から重力の分力を減算
+	float gv[] = {0.0, 0.0, gravity_c};
+	float gv_b[3] = {0.0};
+	madgwick.trans(gv_b, gv);
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		//LPF用の前回値
+		float a_old = a[i];
+		//重力加速度を引く
+		a[i] = a_grav[i] - gv_b[i];
+
+		//閾値より小さかったら0 大きかったらローパスフィルタを通す
+		//abs代わりに二乗乗
+		if(a[i]*a[i] < 0.04){
+			a[i] = 0;
+		}else {
+			//ローパスフィルタ用係数
+			const float alpha = 0.1;
+			a[i] = alpha * a_old  + (1.0 - alpha) * a[i];
+		}
+	}
 
 	//積分
 	v[0] = v[0] + a[0]*dt;

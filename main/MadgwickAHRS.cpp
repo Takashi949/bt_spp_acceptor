@@ -249,3 +249,20 @@ void Madgwick::computeAngles()
 	anglesComputed = 1;
 }
 
+void Madgwick::trans(float *rv, float *v){
+	float R[3][3] = {
+		{2.0f*q0*q0 - 1.0f + 2.0f * q1*q1, 2.0f*(q1 * q2 + q0 * q3), 2.0f*(q1 * q3 - q0 * q2)},
+		{2.0f*(q1*q2 - q0*q3), 2.0f * q0*q0 - 1.0f + 2.0f * q2*q2, 2.0f*(q2*q3 + q0 * q1)},
+		{2.0f*(q1*q3 + q0*q2), 2.0f * (q2*q3 - q0 * q1), 2.0f*q0*q0 -1.0f + 2.0f*q3*q3} 
+	};
+	rv[0] = 0;
+	rv[1] = 0;
+	rv[2] = 0;
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		for (uint8_t j = 0; j < 3; j++)
+		{
+			rv[i] += R[i][j] * v[j];
+		}
+	}
+}

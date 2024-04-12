@@ -56,7 +56,7 @@ void telemetry_task(){
     sprintf(msg, "imu,%4.f,%4.f,%4.f,", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "Throttle %d", Thrust->getPercent());
+    sprintf(msg, "Throttle %d,", Thrust->getPercent());
     bl_comm.sendMsg(msg);
 
     sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x[0], motion.x[1], motion.x[2]);
@@ -105,7 +105,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
             if(Thrust->getPercent() != val){
                 //set the throttle value
                 ESP_ERROR_CHECK(Thrust->setPWM(val));   
-                sprintf(SPPmsg, "Throttole %d", Thrust->getPercent());
+                sprintf(SPPmsg, "Throttole %d,", Thrust->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'r'){
@@ -115,7 +115,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
             if(ServoSG->getPercent() != val){
                 //set the Angle value
                 ESP_ERROR_CHECK(ServoSG->setPWM(val));
-                sprintf(SPPmsg, "ServoSG %d", ServoSG->getPercent());
+                sprintf(SPPmsg, "ServoSG %d,", ServoSG->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'l'){
@@ -126,7 +126,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
                 //set the Angle value
                 //向きが反対だから100-val注意
                 ESP_ERROR_CHECK(ServoFS->setPWM(100-val));   
-                sprintf(SPPmsg, "ServoFS %d", ServoFS->getPercent());
+                sprintf(SPPmsg, "ServoFS %d,", ServoFS->getPercent());
             }
         }
     }else if(msg[0] == 'b' && msg[1] == 'c'){

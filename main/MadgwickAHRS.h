@@ -35,8 +35,9 @@ private:
     char anglesComputed;
     void computeAngles();
 
-//-------------------------------------------------------------------------------------------
-// Function declarations
+
+    //-------------------------------------------------------------------------------------------
+    // Function declarations
 public:
     Madgwick();
     void begin(float sampleFrequency) { invSampleFreq = 1.0f / sampleFrequency; }
@@ -69,6 +70,7 @@ public:
         if (!anglesComputed) computeAngles();
         return yaw;
     }
+    void trans(float *rv, float *v);
 };
 #endif
 

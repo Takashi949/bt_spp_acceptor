@@ -7,14 +7,17 @@ class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
 public:
-	float agrav = 0.0;
+	float a_grav[3] = {0.0};
+	const float gravity_c = 9.80665;
+	const float deg2rad = 0.017453;
+	const float rad2deg = 1.0/rad2deg;
 	float v[3] = {0};
 	float a0[3] = {0};
 	float g0[3] = {0};
 	float m0[3] = {0};
-	float a[3] = {0, 0, 0};
-	float g[3] = {0, 0, 0};
-	float m[3] = {0, 0, 0};
+	float a[3] = {0.0};
+	float g[3] = {0.0};
+	float m[3] = {0.0};
 	float u[3] = {0.0f};
 	float thetadot[3] = {0};
 	float x[3] = {0};
@@ -57,7 +60,8 @@ public:
 		{-0.272, -0.066, 42970.999}
 	};
 	void begin(float sampleFreq, i2c_master_bus_handle_t bus_handle);
-	void update();
+    void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
+    void update();
     void calcU();
     void getPRY(float *retbuf);
     void calib();
@@ -67,5 +71,4 @@ public:
 		{-1.0 / 2.0, -1.7320508 / 2.0, 0.0},
 		{0.0, 0.0, 1.0}
 	};
-	void Sensor2Inert(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
 };
