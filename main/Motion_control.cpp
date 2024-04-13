@@ -3,6 +3,9 @@
 #include "ESP32_i2c_LSM9DS1.h"
 #include "MadgwickAHRS.h"
 #include "esp_log.h"
+#include "esp_dsp.h"
+#include "dsp_platform.h"
+#include "mat.h"
 
 void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
@@ -12,12 +15,68 @@ void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle)
 	madgwick.begin(sampleFreq);
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
-	for(uint8_t i = 0; i < 3; i++){
-		g[i] = transM[i][0]*gx + transM[i][1]*gy + transM[i][2]*gz;
-		//姿勢判定用 重力込みの加速度
-		a_grav[i] = transM[i][0]*ax + transM[i][1]*ay + transM[i][2]*az;
-		m[i] = transM[i][0]*mx + transM[i][1]*my + transM[i][2]*mz; 
-	}
+	float gsrc[] = {gx, gy, gz};
+	dspm::Mat gm(gsrc, 3, 1);
+	g = trans * gm;
+
+	//姿勢判定用 重力込みの加速度
+	a_grav = trans * gx;
+
+	float msrc[] = {mx, my, mz};
+	dspm::Mat mm(msrc, 3, 1);
+	m = trans * mm;
+}
+void Motion_control::filtaUpdate(){
+	//x = F*x + u + Q
+	//y = H*x + R
+	
+	//x = [ax ay az vx vy vz]';
+	
+	//y= [ax ay az];
+	float ysrc[3] = {a[0], a[1], a[2]};
+	dspm::Mat y(ysrc, 3, 1);
+
+	//F = [0 0 0 ]
+	float Fsrc[] = {
+		0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0,
+		dt, 0, 0, 1, 0, 0,
+		0, dt, 0, 0, 1, 0,
+		0, 0, dt, 0, 0, 1
+	};
+	dspm::Mat F(Fsrc, 6, 6);
+	
+	float Hsrc[] = {
+		1, 0, 0, 0, 0, 0,
+		0, 1, 0, 0, 0, 0,
+		0, 0, 1, 0, 0, 0,
+	};
+	dspm::Mat H(Hsrc, 3, 6);
+
+	float Qsrc[6] = {0};
+	dspm::Mat Q(Qsrc, 6, 1);
+
+	//x = Fx + Bu;
+	xhat = F * xhat;
+
+	//P = F P F' + Q
+	dspm::Mat P(6, 6);
+	P = F*P*F.t() + Q;
+
+	float Rsrc[] = {9, 9, 9};
+	dspm::Mat R(Rsrc, 1, 3);
+
+	//K = P*H'*(R + H*P*H')^-1
+	dspm::Mat K(6, 6);
+	K = P*H.t()*(R + H*P*H.t()).inverse();
+	
+	//xhat = xhat + K(y-Hx)
+	xhat = xhat + K*(y-H*xhat);
+
+	//P = (I-KH)P
+	P = (dspm::Mat::eye(6) - K*H)*P;
+
 }
 void Motion_control::update(){
 	imu.readTemp();
@@ -29,54 +88,44 @@ void Motion_control::update(){
 	Sensor2Body(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
 				imu.calcAccel(imu.ax) * gravity_c, imu.calcAccel(imu.ay) * gravity_c,  imu.calcAccel(imu.az) * gravity_c,
 				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
-	
-	//微分計算のため前の値を保存
-	float dtheta[3] = {0};
-	dtheta[0] = madgwick.getPitch();
-	dtheta[1] = madgwick.getRoll();
-	dtheta[2] = madgwick.getYaw();
     
 	//azだけ重力加速度込みの値を入れる
-	madgwick.update(g[0], g[1], g[2],
-					a_grav[0], a_grav[1], a_grav[2],
-					m[0], m[1], m[2]);
+	madgwick.update(g(1, 0), g(2, 0), g(3, 0),
+					a_grav(1, 0), a_grav(2, 0), a_grav(3, 0),
+					m(1, 0), m(2, 0), m(3, 0));
 
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, gravity_c};
-	float gv_b[3] = {0.0};
-	madgwick.trans(gv_b, gv);
+	float gv_bsrc[3] = {0.0};
+	madgwick.trans(gv_bsrc, gv);
+	dspm::Mat gv_b(gv_bsrc, 3, 1);
+
+	//LPF用の前回値
+	dspm::Mat a_old = a;
+	//重力加速度を引く
+	a = a_grav - gv_b;
+	
+	//閾値より小さかったら0 大きかったらローパスフィルタを通す
+	//abs代わりに二乗乗
 	for (uint8_t i = 0; i < 3; i++)
 	{
-		//LPF用の前回値
-		float a_old = a[i];
-		//重力加速度を引く
-		a[i] = a_grav[i] - gv_b[i];
-
 		//閾値より小さかったら0 大きかったらローパスフィルタを通す
 		//abs代わりに二乗乗
-		if(a[i]*a[i] < 0.04){
-			a[i] = 0;
+		if((a(i, 1) * a(i, 1))(1 , 1) < 0.04){
+			a(i, 1) = 0.0f;
 		}else {
 			//ローパスフィルタ用係数
 			const float alpha = 0.1;
-			a[i] = alpha * a_old  + (1.0 - alpha) * a[i];
+			a(i, 1) = alpha * a_old  + (1.0 - alpha) * a[i];
 		}
 	}
 
+	filtaUpdate();
 	//積分
-	v[0] = v[0] + a[0]*dt;
-	v[1] = v[1] + a[1]*dt;
-	v[2] = v[2] + a[2]*dt;
+	v = v + a * dt;
 
 	//積分
-	x[0] = x[0] + v[0]*dt;
-	x[1] = x[1] + v[1]*dt;
-	x[2] = x[2] + v[2]*dt;
-
-	//微分そのうちクオータニオンに
-	thetadot[0] = (madgwick.getPitch() - dtheta[0])/dt;
-	thetadot[1] = (madgwick.getRoll() - dtheta[1])/dt;
-	thetadot[2] = (madgwick.getYaw() - dtheta[2])/dt;
+	x = x + v * dt;
 }
 void Motion_control::calcU(){
 	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];

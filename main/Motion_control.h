@@ -1,13 +1,29 @@
 #include "ESP32_i2c_LSM9DS1.h"
 #include "MadgwickAHRS.h"
+#include "esp_dsp.h"
+#include "dsp_platform.h"
 
 #define TAG "MOTION"
 
 class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
+	dspm::Mat P;
+	dspm::Mat xhat;
+	dspm::Mat trans;
 public:
-	float a_grav[3] = {0.0};
+	Motion_control(){
+		P = dspm::Mat(6, 6);
+		xhat = dspm::Mat(6, 1);
+
+		float transM[] = {
+		1.7320508 / 2.0, -1.0 / 2.0, 0.0,
+		-1.0 / 2.0, -1.7320508 / 2.0, 0.0,
+		0.0, 0.0, 1.0
+	};
+		trans = dspm::Mat(transM, 3, 3);
+	}
+
 	const float gravity_c = 9.80665;
 	const float deg2rad = 0.017453;
 	const float rad2deg = 1.0/rad2deg;
@@ -15,9 +31,12 @@ public:
 	float a0[3] = {0};
 	float g0[3] = {0};
 	float m0[3] = {0};
-	float a[3] = {0.0};
-	float g[3] = {0.0};
-	float m[3] = {0.0};
+	dspm::Mat a_grav = dspm::Mat::(3, 1);
+	dspm::Mat a = dspm::Mat(3, 1);
+	dspm::Mat g = dspm::Mat(3, 1);
+	dspm::Mat m = dspm::Mat(3, 1);
+	dspm::Mat v = dspm::Mat(3, 1);
+	dspm::Mat x = dspm::Mat(3, 1);
 	float u[3] = {0.0f};
 	float thetadot[3] = {0};
 	float x[3] = {0};
@@ -61,14 +80,10 @@ public:
 	};
 	void begin(float sampleFreq, i2c_master_bus_handle_t bus_handle);
     void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
+    void filtaUpdate();
     void update();
     void calcU();
     void getPRY(float *retbuf);
     void calib();
     void correctInitValue(uint16_t num_loop);
-    float transM[3][3] = {
-		{1.7320508 / 2.0, -1.0 / 2.0, 0.0},
-		{-1.0 / 2.0, -1.7320508 / 2.0, 0.0},
-		{0.0, 0.0, 1.0}
-	};
 };

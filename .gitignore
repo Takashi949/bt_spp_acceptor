@@ -3,3 +3,4 @@
 /build
 /ESP32_SSP.md
 /sdkconfig.defaults
+/managed_components
