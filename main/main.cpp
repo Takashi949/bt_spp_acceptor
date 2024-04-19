@@ -59,13 +59,13 @@ void telemetry_task(){
     sprintf(msg, "Throttle %d,", Thrust->getPercent());
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x[0], motion.x[1], motion.x[2]);
+    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
     bl_comm.sendMsg(msg); 
     
-    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.v[0], motion.v[1], motion.v[2]);
+    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0));
     bl_comm.sendMsg(msg); 
 
-    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.a[0], motion.a[1], motion.a[2]);
+    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0));
     bl_comm.sendMsg(msg); 
 
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
@@ -88,9 +88,9 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
     motion.update();
     if(isControlEnable){
         motion.calcU();
-        Thrust->setPWM(motion.u[0]);
-        ServoFS->setPWM(motion.u[1]);
-        ServoSG->setPWM(motion.u[2]);
+        Thrust->setPWM(motion.u(1, 1));
+        ServoFS->setPWM(motion.u(2, 1));
+        ServoSG->setPWM(motion.u(3, 1));
     }
 }
 

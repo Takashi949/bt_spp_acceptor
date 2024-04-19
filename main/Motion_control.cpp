@@ -20,7 +20,10 @@ void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float a
 	g = trans * gm;
 
 	//姿勢判定用 重力込みの加速度
-	a_grav = trans * gx;
+	float asrc[] = {ax, ay, az};
+	dspm::Mat am(asrc, 3, 1);
+	a = trans * am;
+	a_grav = a;
 
 	float msrc[] = {mx, my, mz};
 	dspm::Mat mm(msrc, 3, 1);
@@ -33,50 +36,22 @@ void Motion_control::filtaUpdate(){
 	//x = [ax ay az vx vy vz]';
 	
 	//y= [ax ay az];
-	float ysrc[3] = {a[0], a[1], a[2]};
-	dspm::Mat y(ysrc, 3, 1);
-
-	//F = [0 0 0 ]
-	float Fsrc[] = {
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		dt, 0, 0, 1, 0, 0,
-		0, dt, 0, 0, 1, 0,
-		0, 0, dt, 0, 0, 1
-	};
-	dspm::Mat F(Fsrc, 6, 6);
-	
-	float Hsrc[] = {
-		1, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 0, 0,
-		0, 0, 1, 0, 0, 0,
-	};
-	dspm::Mat H(Hsrc, 3, 6);
-
-	float Qsrc[6] = {0};
-	dspm::Mat Q(Qsrc, 6, 1);
+	dspm::Mat y = a;
 
 	//x = Fx + Bu;
 	xhat = F * xhat;
 
 	//P = F P F' + Q
-	dspm::Mat P(6, 6);
 	P = F*P*F.t() + Q;
-
-	float Rsrc[] = {9, 9, 9};
-	dspm::Mat R(Rsrc, 1, 3);
-
-	//K = P*H'*(R + H*P*H')^-1
-	dspm::Mat K(6, 6);
-	K = P*H.t()*(R + H*P*H.t()).inverse();
 	
+	//K = P*H'*(R + H*P*H')^-1
+	K = P*H.t()*(R + H*P*H.t()).inverse();
+
 	//xhat = xhat + K(y-Hx)
 	xhat = xhat + K*(y-H*xhat);
 
 	//P = (I-KH)P
 	P = (dspm::Mat::eye(6) - K*H)*P;
-
 }
 void Motion_control::update(){
 	imu.readTemp();
@@ -89,10 +64,10 @@ void Motion_control::update(){
 				imu.calcAccel(imu.ax) * gravity_c, imu.calcAccel(imu.ay) * gravity_c,  imu.calcAccel(imu.az) * gravity_c,
 				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
     
-	//azだけ重力加速度込みの値を入れる
-	madgwick.update(g(1, 0), g(2, 0), g(3, 0),
-					a_grav(1, 0), a_grav(2, 0), a_grav(3, 0),
-					m(1, 0), m(2, 0), m(3, 0));
+	//aに重力加速度込みの値を入れる
+	madgwick.update(g(0, 0), g(1, 0), g(2, 0),
+					a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
+					m(0, 0), m(1, 0), m(2, 0));
 
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, gravity_c};
@@ -102,23 +77,16 @@ void Motion_control::update(){
 
 	//LPF用の前回値
 	dspm::Mat a_old = a;
+
 	//重力加速度を引く
 	a = a_grav - gv_b;
 	
 	//閾値より小さかったら0 大きかったらローパスフィルタを通す
 	//abs代わりに二乗乗
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		//閾値より小さかったら0 大きかったらローパスフィルタを通す
-		//abs代わりに二乗乗
-		if((a(i, 1) * a(i, 1))(1 , 1) < 0.04){
-			a(i, 1) = 0.0f;
-		}else {
-			//ローパスフィルタ用係数
-			const float alpha = 0.1;
-			a(i, 1) = alpha * a_old  + (1.0 - alpha) * a[i];
-		}
-	}
+
+	//ローパスフィルタ用係数
+	const float alpha = 0.1;
+	//a = alpha * a_old  + (1.0 - alpha) * a;
 
 	filtaUpdate();
 	//積分
@@ -134,11 +102,6 @@ void Motion_control::calcU(){
 		{-3.31058510375725e-18,	1.40929870205265e-17,	-0.999999999999998,	-3.36923865435662},
 		{0.707106781186547,	1.07730505707788, 4.51655336604030e-17, -7.80806010163669e-17},
 		{-0.707106781186547, -1.07730505707788, -4.51655336604030e-17, 7.80806010163669e-17}};
-	for(uint8_t i = 0; i < 3; i++){
-		u[i] = F[i][0]*g[2] + F[i][1]*thetadot[2] + F[i][2]*x[2] + F[i][3]*v[2];
-		if(u[i] < 0.0f)u[i] = 0.0f;
-		if(u[i] > 100.0f)u[i] = 100.0f;
-	}
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();
