@@ -9,44 +9,63 @@ class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
 	dspm::Mat P, trans, F, B, H, Q, R, K;
+	float dt;
 public:
-	Motion_control(){
+	Motion_control(float sample_ms){
+		dt = sample_ms / 1000.0f;
+
 		P = dspm::Mat(6, 6);
+		float Psrc[] = {
+			0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0,
+		};
+		*P.data = *Psrc;
+
 		xhat = dspm::Mat(6, 1);
+
 		K = dspm::Mat(6, 1);
 
-		static float transM[] = {
-		1.7320508 / 2.0, -1.0 / 2.0, 0.0,
-		-1.0 / 2.0, -1.7320508 / 2.0, 0.0,
-		0.0, 0.0, 1.0
+		float transM[] = {
+			1.7320508 / 2.0, -1.0 / 2.0, 0.0,
+			-1.0 / 2.0, -1.7320508 / 2.0, 0.0,
+			0.0, 0.0, 1.0
 		};
-		trans = dspm::Mat(transM, 3, 3);
+		trans = dspm::Mat(3, 3);
+		*trans.data = *transM;
 
-		static float Fsrc[] = {
-			0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0,
+		float Fsrc[] = {
+			1, 0, 0, 0, 0, 0,
+			0, 1, 0, 0, 0, 0,
+			0, 0, 1, 0, 0, 0,
 			dt, 0, 0, 1, 0, 0,
 			0, dt, 0, 0, 1, 0,
 			0, 0, dt, 0, 0, 1
 		};
-		F = dspm::Mat(Fsrc, 6, 6);
+		F = dspm::Mat(6, 6);
+		*F.data = *Fsrc;
 		
-		static float Hsrc[] = {
+		float Hsrc[] = {
 			1, 0, 0, 0, 0, 0,
 			0, 1, 0, 0, 0, 0,
 			0, 0, 1, 0, 0, 0,
 		};
-		H = dspm::Mat(Hsrc, 3, 6);
+		H = dspm::Mat(3, 6);
+		*H.data = *Hsrc;
 
-		static float Qsrc[6] = {0};
-		Q = dspm::Mat(Qsrc, 6, 6);
+		float Qsrc[6] = {0};
+		Q = dspm::Mat(6, 6);
+		*Q.data = *Qsrc;
 
-		static float Rsrc[] = {
-			9, 0, 0,
-			0, 9, 0,
-			0, 0, 9};
-		R = dspm::Mat(Rsrc, 3, 3);
+		float Rsrc[] = {
+			0.1, 0, 0,
+			0, 0.1, 0,
+			0, 0, 0.9};
+		R = dspm::Mat(3, 3);
+		*R.data = *Rsrc;
 	}
 
 	const float gravity_c = 9.80665;
@@ -65,7 +84,6 @@ public:
 	dspm::Mat u = dspm::Mat(3, 1);
 	dspm::Mat xhat; 
 
-	float dt = 10000.0f;
 	/* 	{
 		{cos30, -sin30, 0},
 		{-sin30, -cos30, 0},
@@ -103,7 +121,7 @@ public:
 		{0.197, 24772.398, -0.066},
 		{-0.272, -0.066, 42970.999}
 	};
-	void begin(float sampleFreq, i2c_master_bus_handle_t bus_handle);
+	void begin(i2c_master_bus_handle_t bus_handle);
     void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
     void filtaUpdate();
     void update();

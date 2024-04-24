@@ -7,12 +7,11 @@
 #include "dsp_platform.h"
 #include "mat.h"
 
-void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
+void Motion_control::begin(i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
-	dt = 1.0f/sampleFreq;
-	madgwick.begin(sampleFreq);
+	madgwick.begin(1.0/dt);
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float gsrc[] = {gx, gy, gz};
@@ -48,7 +47,7 @@ void Motion_control::filtaUpdate(){
 	K = P*H.t()*(R + H*P*H.t()).inverse();
 
 	//xhat = xhat + K(y-Hx)
-	xhat = xhat + K*(y-H*xhat);
+	xhat += K*(y-H*xhat);
 
 	//P = (I-KH)P
 	P = (dspm::Mat::eye(6) - K*H)*P;
@@ -71,15 +70,16 @@ void Motion_control::update(){
 
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, gravity_c};
-	float gv_bsrc[3] = {0.0};
+	static float gv_bsrc[3] = {0.0};
 	madgwick.trans(gv_bsrc, gv);
 	dspm::Mat gv_b(gv_bsrc, 3, 1);
 
 	//LPF用の前回値
-	dspm::Mat a_old = a;
+	//dspm::Mat a_old = a;
 
 	//重力加速度を引く
 	a = a_grav - gv_b;
+	//a = a_grav;
 	
 	//閾値より小さかったら0 大きかったらローパスフィルタを通す
 	//abs代わりに二乗乗
@@ -89,11 +89,8 @@ void Motion_control::update(){
 	//a = alpha * a_old  + (1.0 - alpha) * a;
 
 	filtaUpdate();
-	//積分
-	v = v + a * dt;
 
 	//積分
-	x = x + v * dt;
 }
 void Motion_control::calcU(){
 	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];

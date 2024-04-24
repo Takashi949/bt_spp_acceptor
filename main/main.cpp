@@ -35,6 +35,7 @@
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
 
 #define TAG "ESP_SPP_DRONE"
+const float IMU_sampling_ms = 50;
 
 Bl_comm bl_comm;
 void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
@@ -43,7 +44,7 @@ bool Bl_comm::isConnecting = false;
 bool Bl_comm::isWriting = false;
 
 Motor *Thrust, *ServoSG, *ServoFS;
-Motion_control motion;
+Motion_control motion(IMU_sampling_ms);
 
 TaskHandle_t bl_telem_handle_t = NULL;
 bool isControlEnable = false;
@@ -153,7 +154,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     }
 }
 
-static void i2c_master_init(float sampleFreq)
+static void i2c_master_init()
 {
     i2c_master_bus_config_t bus_conf = {
         .i2c_port = -1,
@@ -170,7 +171,7 @@ static void i2c_master_init(float sampleFreq)
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
-    motion.begin(sampleFreq, bus_handle);
+    motion.begin(bus_handle);
     //motion.correctInitValue(100);
 }
 
@@ -234,8 +235,7 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Own address:[%s]", bl_comm.get_bt_addr());
 
     ESP_LOGI(TAG, "Create IMU");
-    const int IMU_sampling_ms = 50;
-    i2c_master_init(1000/IMU_sampling_ms);
+    i2c_master_init();
     // タイマーを作成し、コールバック関数を設定します。
     TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(IMU_sampling_ms), pdTRUE, (void *) 1, timer_callback);
     if (timer == NULL) {
