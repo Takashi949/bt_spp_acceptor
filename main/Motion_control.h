@@ -2,17 +2,20 @@
 #include "MadgwickAHRS.h"
 #include "esp_dsp.h"
 #include "dsp_platform.h"
+#include <string.h>
 
 #define TAG "MOTION"
 
 class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
-	dspm::Mat P, trans, F, B, H, Q, R, K;
+	dspm::Mat P, trans, F, B, H, Q, R, K, uF;
 	float dt;
 public:
 	Motion_control(float sample_ms){
 		dt = sample_ms / 1000.0f;
+		xhat = dspm::Mat(6, 1);
+		K = dspm::Mat(6, 1);
 
 		P = dspm::Mat(6, 6);
 		float Psrc[] = {
@@ -23,11 +26,7 @@ public:
 			0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0,
 		};
-		*P.data = *Psrc;
-
-		xhat = dspm::Mat(6, 1);
-
-		K = dspm::Mat(6, 1);
+		memcpy(P.data, Psrc, sizeof(Psrc));
 
 		float transM[] = {
 			1.7320508 / 2.0, -1.0 / 2.0, 0.0,
@@ -35,7 +34,7 @@ public:
 			0.0, 0.0, 1.0
 		};
 		trans = dspm::Mat(3, 3);
-		*trans.data = *transM;
+		memcpy(trans.data, transM, sizeof(transM));
 
 		float Fsrc[] = {
 			1, 0, 0, 0, 0, 0,
@@ -46,7 +45,7 @@ public:
 			0, 0, dt, 0, 0, 1
 		};
 		F = dspm::Mat(6, 6);
-		*F.data = *Fsrc;
+		memcpy(F.data, Fsrc, sizeof(Fsrc));
 		
 		float Hsrc[] = {
 			1, 0, 0, 0, 0, 0,
@@ -54,18 +53,26 @@ public:
 			0, 0, 1, 0, 0, 0,
 		};
 		H = dspm::Mat(3, 6);
-		*H.data = *Hsrc;
+		memcpy(H.data, Hsrc, sizeof(Hsrc));
 
 		float Qsrc[6] = {0};
 		Q = dspm::Mat(6, 6);
-		*Q.data = *Qsrc;
 
 		float Rsrc[] = {
 			0.1, 0, 0,
 			0, 0.1, 0,
 			0, 0, 0.9};
 		R = dspm::Mat(3, 3);
-		*R.data = *Rsrc;
+		memcpy(R.data, Rsrc, sizeof(Rsrc));
+
+		//制御
+		const float uFsrc[] = {
+			4.54958622588005e-16, 5.59614995849377e-16,	8.73916589597987e-17,	3.11361580524650e-16,
+			-4.00945374364570, 4.50841729703798,	-2.00945374364569,	2.50841729703798,
+			-4.00945374364569, -4.50841729703798,	-2.00945374364569,	-2.50841729703798
+		};
+		uF = dspm::Mat(3, 4);
+		memcpy(uF.data, uFsrc, sizeof(uFsrc));
 	}
 
 	const float gravity_c = 9.80665;
@@ -104,12 +111,8 @@ public:
 	幅	221.586 mm
 	高さ	174.50 mm
 	*/
-	//	重心の慣性モーメント   (g mm^2)
-	const float J[3][3] = {
-		{ 1.546E+06, -2.701E+05,30139.423},
-		{ -2.701E+05,2.660E+06,-7183.935},
-		{30139.423,-7183.935 ,3.000E+06}
-	};
+	//	重心の主慣性モーメント kg m^2
+	const float J[3] = {0.0015, 0.0027, 0.0030};
 
 	//ろーたーの質量 kg
 	const float mass_r = 57.756E-3;

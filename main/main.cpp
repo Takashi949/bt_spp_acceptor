@@ -57,7 +57,7 @@ void telemetry_task(){
     sprintf(msg, "imu,%4.f,%4.f,%4.f,", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "Throttle %d,", Thrust->getPercent());
+    sprintf(msg, "Throttle,%d,%d,%d,", Thrust->getPercent(), ServoFS->getPercent(), ServoSG->getPercent());
     bl_comm.sendMsg(msg);
 
     sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
@@ -89,9 +89,10 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
     motion.update();
     if(isControlEnable){
         motion.calcU();
-        Thrust->setPWM(motion.u(1, 1));
-        ServoFS->setPWM(motion.u(2, 1));
-        ServoSG->setPWM(motion.u(3, 1));
+        //Thrust->setPWM(motion.u(1, 1));
+        //操舵量はuが±を返すため0~100に変換する
+        ServoFS->setPWM(int(motion.u(1, 0)));
+        ServoSG->setPWM(int(motion.u(2, 0)));
     }
 }
 
@@ -211,7 +212,7 @@ static void pwm_init(){
 
     ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo, timer));
-    ServoSG = new Motor(GPIO_NUM_2, operServo, 500, 2400);
+    ServoSG = new Motor(GPIO_NUM_2, operServo, 500, 2500);
     ServoFS = new Motor(GPIO_NUM_0, operServo, 500, 2500);
     ServoSG->begin();
     ServoFS->begin();

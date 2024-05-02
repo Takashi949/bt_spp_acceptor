@@ -95,10 +95,10 @@ void Motion_control::update(){
 void Motion_control::calcU(){
 	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];
 	//u = (a[2] + 9.80)*100.0f/1.69 * mass;
-	const float F[3][4] = {
-		{-3.31058510375725e-18,	1.40929870205265e-17,	-0.999999999999998,	-3.36923865435662},
-		{0.707106781186547,	1.07730505707788, 4.51655336604030e-17, -7.80806010163669e-17},
-		{-0.707106781186547, -1.07730505707788, -4.51655336604030e-17, 7.80806010163669e-17}};
+
+	//x^ = [tx tz wx wz] 
+	float xsrc[] = {madgwick.getPitch(), madgwick.getYaw(), imu.calcGyro(imu.gx) * deg2rad, imu.calcGyro(imu.gz) * deg2rad};
+	u = uF * dspm::Mat(xsrc, 4, 1);
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();

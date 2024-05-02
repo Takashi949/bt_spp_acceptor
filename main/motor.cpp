@@ -47,6 +47,7 @@ uint8_t Motor::getPercent(){
     return percent;
 }
 esp_err_t Motor::setPWM(uint8_t percentage){
+    if(percentage > 100)percentage = 100;
     esp_err_t err = ESP_OK;
     if((err = mcpwm_comparator_set_compare_value(comparator, (max_pulse_us - min_pulse_us)/100 * percentage + min_pulse_us)) != ESP_OK){
         ESP_LOGE(MOTOR_TAG, "%s", esp_err_to_name(err));
