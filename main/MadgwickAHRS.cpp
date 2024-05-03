@@ -153,7 +153,6 @@ void Madgwick::update(float gx, float gy, float gz, float ax, float ay, float az
 void Madgwick::updateIMU(float gx, float gy, float gz, float ax, float ay, float az) {
 	float recipNorm;
 	float s0, s1, s2, s3;
-	float qDot1, qDot2, qDot3, qDot4;
 	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
 
 	// Convert gyroscope degrees/sec to radians/sec
@@ -247,6 +246,11 @@ void Madgwick::computeAngles()
 	pitch = asinf(-2.0f * (q1*q3 - q0*q2));
 	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
 	anglesComputed = 1;
+}
+void Madgwick::calcW(){
+	wx = 2.0 *(qDot1 * q3 + qDot2 * q2 - qDot3 * q1 - qDot4 * q0);
+	wy = 2.0 *(qDot2 * q3 + qDot3 * q0 - qDot1 * q2 - qDot4 * q1);
+	wz = 2.0 *(qDot3 * q3 + qDot1 * q1 - qDot2 * q0 - qDot4 * q2);
 }
 
 void Madgwick::trans(float *rv, float *v){

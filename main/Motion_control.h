@@ -66,11 +66,19 @@ public:
 		memcpy(R.data, Rsrc, sizeof(Rsrc));
 
 		//制御
-		const float uFsrc[] = {
+		//LQR
+/* 		const float uFsrc[] = {
 			1.01209304572667e-14,	-1.94850676217256e-14,	5.83242925269120e-16,	-2.25922914654743e-16,
 			59.1887117583658,	-61.4453363797980,	1.54345536206767,	-1.65628659313927,
 			59.1887117583659,	61.4453363797979,	1.54345536206767,	1.65628659313927,
-		};
+		}; */
+
+		//H∞
+		const float uFsrc[] = {
+			0,	0,	0,	0,
+			-2.54248039003449,	-1.47975871924628,	-1.93775586725231,	-23.8213366456232,
+			-2.54248039003449,	1.47975871924628,	-1.93775586725231,	23.8213366456232
+		}; 	
 		uF = dspm::Mat(3, 4);
 		memcpy(uF.data, uFsrc, sizeof(uFsrc));
 	}
@@ -97,33 +105,6 @@ public:
 		{0, 0, 1}
 	} */
 
-	//質量 kg
-	const float mass = 857.23E-3f;
-	//体積 mm3
-	const float V = 4600.0E-9;
-	//IMUセンサから重心までの距離 m
-	const float CG[3] = {-73.538E-3, 45.016E-3, -19.658e-3};
-	//操舵面と重心の距離 m
-	//y軸の正負で右左を変える
-	const float ECG[3] = {6.565E-3, -33.663E-3, -63.053E-3};
-	/*
-	長さ	217.098 mm
-	幅	221.586 mm
-	高さ	174.50 mm
-	*/
-	//	重心の主慣性モーメント kg m^2
-	const float J[3] = {0.0015, 0.0027, 0.0030};
-
-	//ろーたーの質量 kg
-	const float mass_r = 57.756E-3;
-	//ローターの重心
-	const float CG_r[3] = {-0.001E-3, 0.00E-3, 60.326E-3};
-	//ローターの重心の慣性モーメント   (g mm^2)
-	const float J_r[3][3] =	{
-		{24772.756, 0.197, -0.272},
-		{0.197, 24772.398, -0.066},
-		{-0.272, -0.066, 42970.999}
-	};
 	void begin(i2c_master_bus_handle_t bus_handle);
     void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
     void filtaUpdate();

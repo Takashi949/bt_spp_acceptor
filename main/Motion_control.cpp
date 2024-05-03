@@ -67,6 +67,7 @@ void Motion_control::update(){
 	madgwick.update(g(0, 0), g(1, 0), g(2, 0),
 					a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
 					m(0, 0), m(1, 0), m(2, 0));
+	madgwick.calcW();
 
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, gravity_c};
@@ -97,7 +98,8 @@ void Motion_control::calcU(){
 	//u = (a[2] + 9.80)*100.0f/1.69 * mass;
 
 	//x^ = [tx tz wx wz] 
-	float xsrc[] = {madgwick.getPitch(), madgwick.getYaw(), imu.calcGyro(imu.gx) * deg2rad, imu.calcGyro(imu.gz) * deg2rad};
+	float xsrc[] = {madgwick.getPitchRadians(), madgwick.getYawRadians(), madgwick.getWx(), madgwick.getWz()};
+
 	u = uF * dspm::Mat(xsrc, 4, 1);
 }
 void Motion_control::getPRY(float* retbuf){

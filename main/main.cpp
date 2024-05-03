@@ -91,8 +91,8 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
         motion.calcU();
         //Thrust->setPWM(motion.u(1, 1));
         //操舵量はuが±を返すため0~100に変換する
-        ServoFS->setPWM(int(motion.u(1, 0)));
-        ServoSG->setPWM(int(motion.u(2, 0)));
+        ServoFS->setPWM(int(50.0 + motion.u(1, 0)));
+        ServoSG->setPWM(int(50.0 + motion.u(2, 0)));
     }
 }
 
