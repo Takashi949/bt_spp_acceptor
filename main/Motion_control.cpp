@@ -16,17 +16,17 @@ void Motion_control::begin(i2c_master_bus_handle_t bus_handle){
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float gsrc[] = {gx, gy, gz};
 	dspm::Mat gm(gsrc, 3, 1);
-	g = trans * gm;
+	g = gm;
 
 	//姿勢判定用 重力込みの加速度
 	float asrc[] = {ax, ay, az};
 	dspm::Mat am(asrc, 3, 1);
-	a = trans * am;
+	a = am;
 	a_grav = a;
 
 	float msrc[] = {mx, my, mz};
 	dspm::Mat mm(msrc, 3, 1);
-	m = trans * mm;
+	m = mm;
 }
 void Motion_control::filtaUpdate(){
 	//x = F*x + u + Q
