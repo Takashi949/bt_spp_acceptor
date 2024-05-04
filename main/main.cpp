@@ -69,6 +69,9 @@ void telemetry_task(){
     sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0));
     bl_comm.sendMsg(msg); 
 
+    sprintf(msg, "ctrl,%4.f,%4.f,%4.f", motion.u(0, 0), motion.u(1, 0), motion.u(2, 0));
+    bl_comm.sendMsg(msg);
+
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
