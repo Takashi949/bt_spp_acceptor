@@ -98,7 +98,9 @@ void Motion_control::calcU(){
 	//u = (a[2] + 9.80)*100.0f/1.69 * mass;
 
 	//x^ = [tx tz wx wz] 
-	float xsrc[] = {madgwick.getPitchRadians(), madgwick.getYawRadians(), madgwick.getWx(), madgwick.getWz()};
+	//y = [tx tz wx wz]
+	//tz: yawは制御対象から外す
+	float xsrc[] = {madgwick.getPitchRadians(), 0, madgwick.getWx(), madgwick.getWz()};
 
 	u = uF * dspm::Mat(xsrc, 4, 1);
 }
