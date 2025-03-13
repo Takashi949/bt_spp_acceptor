@@ -32,8 +32,6 @@ void Motor::setTimer(mcpwm_timer_handle_t _timer){
 }
 void Motor::begin(){
     // set the initial compare value, so that the servo will spin to the center position
-    ESP_LOGI(MOTOR_TAG, "Motor Braking ...");
-    ESP_ERROR_CHECK(setPWM(0));
 
     ESP_LOGI(MOTOR_TAG, "Set generator action on timer and compare event");
     // go high on counter empty

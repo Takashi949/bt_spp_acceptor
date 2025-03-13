@@ -16,24 +16,31 @@ void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle)
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float gsrc[] = {gx, gy, gz};
-	dspm::Mat gm(gsrc, 3, 1);
-	g = trans * gm;
+	gdot[0] = (gx - g(0, 0))/dt;
+	gdot[1] = (gy - g(1, 0))/dt;
+	gdot[2] = (gz - g(2, 0))/dt;
 
-	//姿勢判定用 重力込みの加速度
-	a_grav = trans * gx;
+	float l[] = {0, 0.14524, -0.057685};
 
-	float msrc[] = {mx, my, mz};
-	dspm::Mat mm(msrc, 3, 1);
-	m = trans * mm;
+	float wl = gx*l[0] + gy*l[1] + gz*l[2];
+	float ww = gx * gx + gy * gy + gz * gz;
+
+	a(0, 0) = ax - gdot[1] * l[2] + gdot[2]*l[1] - wl * gx + ww * l[0];
+	a(1, 0) = ay - gdot[2] * l[0] + gdot[0]*l[2] - wl * gy + ww * l[1];
+	a(2, 0) = az - gdot[0] * l[1] + gdot[1]*l[0] - wl * gz + ww * l[2];
+
+	float gnewSrc[] = {gx, gy, gz};
+	g = dspm::Mat(gnewSrc, 3, 1);
 }
 void Motion_control::filtaUpdate(){
-	//x = F*x + u + Q
+	//ESP_LOGD(TAG, "kalman Start");
+	//x = F*x + B*u + Q
 	//y = H*x + R
 	
 	//x = [ax ay az vx vy vz]';
 	
 	//y= [ax ay az];
-	float ysrc[3] = {a[0], a[1], a[2]};
+	float ysrc[3] = {a(0, 0), a(1, 0), a(2, 0)};
 	dspm::Mat y(ysrc, 3, 1);
 
 	//F = [0 0 0 ]
@@ -41,12 +48,26 @@ void Motion_control::filtaUpdate(){
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0,
-		dt, 0, 0, 1, 0, 0,
-		0, dt, 0, 0, 1, 0,
-		0, 0, dt, 0, 0, 1
+		1, 0, 0, 0, 0, 0,
+		0, 1, 0, 0, 0, 0,
+		0, 0, 1, 0, 0, 0
 	};
 	dspm::Mat F(Fsrc, 6, 6);
 	
+	//x = *** + Bu
+	//Lift = -318.2*alpha cos成分は /1.4142 => 225.0*alpha
+ 	//u = [Thrust S1 S2  S3 S4]
+	float Bsrc[] = {
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
+
+		0, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
+		0, 225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
+		1.69f/100.0f/mass, 0, 0, 0, 0,
+	};
+	dspm::Mat B(Bsrc, 6, 5);
+
 	float Hsrc[] = {
 		1, 0, 0, 0, 0, 0,
 		0, 1, 0, 0, 0, 0,
@@ -55,20 +76,22 @@ void Motion_control::filtaUpdate(){
 	dspm::Mat H(Hsrc, 3, 6);
 
 	float Qsrc[6] = {0};
-	dspm::Mat Q(Qsrc, 6, 1);
+	dspm::Mat Q(Qsrc, 6, 6);
 
 	//x = Fx + Bu;
-	xhat = F * xhat;
+	xhat = F * xhat + B * u;
 
 	//P = F P F' + Q
 	dspm::Mat P(6, 6);
 	P = F*P*F.t() + Q;
 
-	float Rsrc[] = {9, 9, 9};
-	dspm::Mat R(Rsrc, 1, 3);
+	float Rsrc[] = {9, 0, 0,
+					0, 9, 0, 
+					0, 0, 9};
+	dspm::Mat R(Rsrc, 3, 3);
 
 	//K = P*H'*(R + H*P*H')^-1
-	dspm::Mat K(6, 6);
+	dspm::Mat K(6, 3);
 	K = P*H.t()*(R + H*P*H.t()).inverse();
 	
 	//xhat = xhat + K(y-Hx)
@@ -76,7 +99,7 @@ void Motion_control::filtaUpdate(){
 
 	//P = (I-KH)P
 	P = (dspm::Mat::eye(6) - K*H)*P;
-
+	//ESP_LOGI(TAG, "Kalman Updated");
 }
 void Motion_control::update(){
 	imu.readTemp();
@@ -104,28 +127,13 @@ void Motion_control::update(){
 	dspm::Mat a_old = a;
 	//重力加速度を引く
 	a = a_grav - gv_b;
-	
-	//閾値より小さかったら0 大きかったらローパスフィルタを通す
-	//abs代わりに二乗乗
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		//閾値より小さかったら0 大きかったらローパスフィルタを通す
-		//abs代わりに二乗乗
-		if((a(i, 1) * a(i, 1))(1 , 1) < 0.04){
-			a(i, 1) = 0.0f;
-		}else {
-			//ローパスフィルタ用係数
-			const float alpha = 0.1;
-			a(i, 1) = alpha * a_old  + (1.0 - alpha) * a[i];
-		}
-	}
 
 	filtaUpdate();
 	//積分
-	v = v + a * dt;
+	//v = v + a * dt;
 
 	//積分
-	x = x + v * dt;
+	//x = x + v * dt;
 }
 void Motion_control::calcU(){
 	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];
@@ -134,11 +142,11 @@ void Motion_control::calcU(){
 		{-3.31058510375725e-18,	1.40929870205265e-17,	-0.999999999999998,	-3.36923865435662},
 		{0.707106781186547,	1.07730505707788, 4.51655336604030e-17, -7.80806010163669e-17},
 		{-0.707106781186547, -1.07730505707788, -4.51655336604030e-17, 7.80806010163669e-17}};
-	for(uint8_t i = 0; i < 3; i++){
-		u[i] = F[i][0]*g[2] + F[i][1]*thetadot[2] + F[i][2]*x[2] + F[i][3]*v[2];
-		if(u[i] < 0.0f)u[i] = 0.0f;
-		if(u[i] > 100.0f)u[i] = 100.0f;
-	}
+	// for(uint8_t i = 0; i < 3; i++){
+	// 	u(i, 0) = F[i][0]*g(2,0) + F[i][1]*thetadot[2] + F[i][2]*x[2] + F[i][3]*v[2];
+	// 	if(u[i] < 0.0f)u[i] = 0.0f;
+	// 	if(u[i] > 100.0f)u[i] = 100.0f;
+	// }
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();

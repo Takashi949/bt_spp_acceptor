@@ -42,7 +42,7 @@ uint32_t Bl_comm::clientHandle = 0;
 bool Bl_comm::isConnecting = false;
 bool Bl_comm::isWriting = false;
 
-Motor *Thrust, *ServoSG, *ServoFS;
+Motor *Thrust, *Servo1, *Servo2, *Servo3, *Servo4;
 Motion_control motion;
 
 TaskHandle_t bl_telem_handle_t = NULL;
@@ -59,13 +59,13 @@ void telemetry_task(){
     sprintf(msg, "Throttle %d,", Thrust->getPercent());
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x[0], motion.x[1], motion.x[2]);
+    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
     bl_comm.sendMsg(msg); 
     
-    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.v[0], motion.v[1], motion.v[2]);
+    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.v(0, 0), motion.v(1, 0), motion.v(2, 0));
     bl_comm.sendMsg(msg); 
 
-    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.a[0], motion.a[1], motion.a[2]);
+    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.a(0, 0), motion.a(1, 0), motion.a(2, 0));
     bl_comm.sendMsg(msg); 
 
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
@@ -88,9 +88,11 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
     motion.update();
     if(isControlEnable){
         motion.calcU();
-        Thrust->setPWM(motion.u[0]);
-        ServoFS->setPWM(motion.u[1]);
-        ServoSG->setPWM(motion.u[2]);
+        Thrust->setPWM(motion.u(0, 0));
+        Servo1->setPWM(motion.u(1, 0));
+        Servo2->setPWM(motion.u(2, 0));
+        Servo3->setPWM(motion.u(3, 0));
+        Servo4->setPWM(motion.u(4, 0));
     }
 }
 
@@ -112,21 +114,20 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
         if(val <= 100){
-            if(ServoSG->getPercent() != val){
+            if(Servo1->getPercent() != val){
                 //set the Angle value
-                ESP_ERROR_CHECK(ServoSG->setPWM(val));
-                sprintf(SPPmsg, "ServoSG %d,", ServoSG->getPercent());
+                ESP_ERROR_CHECK(Servo1->setPWM(val));
+                sprintf(SPPmsg, "Servo1 %d,", Servo1->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'l'){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
         if(val <= 100){
-            if(ServoFS->getPercent() != val){
+            if(Servo2->getPercent() != val){
                 //set the Angle value
-                //向きが反対だから100-val注意
-                ESP_ERROR_CHECK(ServoFS->setPWM(100-val));   
-                sprintf(SPPmsg, "ServoFS %d,", ServoFS->getPercent());
+                ESP_ERROR_CHECK(Servo2->setPWM(val));   
+                sprintf(SPPmsg, "Servo2 %d,", Servo2->getPercent());
             }
         }
     }else if(msg[0] == 'b' && msg[1] == 'c'){
@@ -203,6 +204,8 @@ static void pwm_init(){
 
     Thrust = new Motor(GPIO_NUM_21, oper, 1000, 2000);
     Thrust->begin();
+    ESP_LOGI(TAG, "Motor Breaking ...");
+    Thrust->setPWM(0);
 
     //servo
     mcpwm_oper_handle_t operServo = NULL;
@@ -210,12 +213,26 @@ static void pwm_init(){
 
     ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo, timer));
-    ServoSG = new Motor(GPIO_NUM_2, operServo, 500, 2400);
-    ServoFS = new Motor(GPIO_NUM_0, operServo, 500, 2500);
-    ServoSG->begin();
-    ServoFS->begin();
-    ServoSG->setPWM(50);
-    ServoFS->setPWM(50);
+
+    //comparaterが足りないのでoperatorを追加
+    mcpwm_oper_handle_t operServo2 = NULL;
+    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &operServo2));
+
+    ESP_LOGI(TAG, "Connect timer and operator");
+    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo2, timer));
+
+    Servo1 = new Motor(GPIO_NUM_4, operServo, 900, 2100);
+    Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
+    Servo3 = new Motor(GPIO_NUM_2, operServo2, 900, 2100);
+    Servo4 = new Motor(GPIO_NUM_0, operServo2, 900, 2100);
+    Servo1->begin();
+    Servo2->begin();
+    Servo3->begin();
+    Servo4->begin();
+    Servo1->setPWM(50);
+    Servo2->setPWM(50);
+    Servo3->setPWM(50);
+    Servo4->setPWM(50);
 }
 
 extern "C" void app_main(void)

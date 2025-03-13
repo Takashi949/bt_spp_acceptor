@@ -15,32 +15,24 @@ public:
 	Motion_control(){
 		P = dspm::Mat(6, 6);
 		xhat = dspm::Mat(6, 1);
-
-		float transM[] = {
-		1.7320508 / 2.0, -1.0 / 2.0, 0.0,
-		-1.0 / 2.0, -1.7320508 / 2.0, 0.0,
-		0.0, 0.0, 1.0
-	};
-		trans = dspm::Mat(transM, 3, 3);
 	}
 
 	const float gravity_c = 9.80665;
 	const float deg2rad = 0.017453;
 	const float rad2deg = 1.0/rad2deg;
-	float v[3] = {0};
 	float a0[3] = {0};
 	float g0[3] = {0};
 	float m0[3] = {0};
-	dspm::Mat a_grav = dspm::Mat::(3, 1);
+	dspm::Mat a_grav = dspm::Mat(3, 1);
 	dspm::Mat a = dspm::Mat(3, 1);
 	dspm::Mat g = dspm::Mat(3, 1);
 	dspm::Mat m = dspm::Mat(3, 1);
 	dspm::Mat v = dspm::Mat(3, 1);
 	dspm::Mat x = dspm::Mat(3, 1);
-	float u[3] = {0.0f};
+	dspm::Mat u = dspm::Mat(5, 1);
+	float gdot[3] = {0};
 	float thetadot[3] = {0};
-	float x[3] = {0};
-	float dt = 10000.0f;
+	float dt = 0.05f;
 	/* 	{
 		{cos30, -sin30, 0},
 		{-sin30, -cos30, 0},
@@ -48,7 +40,7 @@ public:
 	} */
 
 	//質量 kg
-	const float mass = 857.23E-3f;
+	const float mass = 3.064;
 	//体積 mm3
 	const float V = 4600.0E-9;
 	//IMUセンサから重心までの距離 m

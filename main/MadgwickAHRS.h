@@ -35,10 +35,10 @@ private:
     char anglesComputed;
     void computeAngles();
 
-
     //-------------------------------------------------------------------------------------------
     // Function declarations
 public:
+    float qDot1, qDot2, qDot3, qDot4;
     Madgwick();
     void begin(float sampleFrequency) { invSampleFreq = 1.0f / sampleFrequency; }
     void update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
