@@ -49,7 +49,8 @@ void Motion_control::filtaUpdate(){
  	//u = [Thrust S1 S2  S3 S4]
 
 	//x = Fx + Bu;
-	xhat = F * xhat + B * u;
+	//xhat = F * xhat + B * u;
+	xhat = F * xhat;
 
 	//P = F P F' + Q
 	P = F*P*F.t() + Q;
@@ -98,24 +99,16 @@ void Motion_control::update(){
 	a = a_grav + gv_b;
 
 	filtaUpdate();
+
+	calcU();
+	
 	//ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", xhat(0, 0), xhat(1, 0), xhat(2, 0));
 	//ESP_LOGI(TAG, "raw%1.2f,%1.2f,%1.2f", a(0, 0), a(1, 0), a(2, 0));
-
-	//積分
-	//x = x + v * dt;
+	//ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
 }
 void Motion_control::calcU(){
-	//u = -(a[2]) -100.0*mass/1.69/dt *(121.0 - 11.0*1.69/100.0/mass) *v[2];
-	//u = (a[2] + 9.80)*100.0f/1.69 * mass;
-	const float F[3][4] = {
-		{-3.31058510375725e-18,	1.40929870205265e-17,	-0.999999999999998,	-3.36923865435662},
-		{0.707106781186547,	1.07730505707788, 4.51655336604030e-17, -7.80806010163669e-17},
-		{-0.707106781186547, -1.07730505707788, -4.51655336604030e-17, 7.80806010163669e-17}};
-	// for(uint8_t i = 0; i < 3; i++){
-	// 	u(i, 0) = F[i][0]*g(2,0) + F[i][1]*thetadot[2] + F[i][2]*x[2] + F[i][3]*v[2];
-	// 	if(u[i] < 0.0f)u[i] = 0.0f;
-	// 	if(u[i] > 100.0f)u[i] = 100.0f;
-	// }
+	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), madgwick.getYawRadians()};
+	u = KC * dspm::Mat(xsrc, 6, 1);
 }
 void Motion_control::getPRY(float* retbuf){
 	retbuf[0] = madgwick.getPitch();
