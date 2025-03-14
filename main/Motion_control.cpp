@@ -29,66 +29,30 @@ void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float a
 	a(1, 0) = ay - gdot[2] * l[0] + gdot[0]*l[2] - wl * gy + ww * l[1];
 	a(2, 0) = az - gdot[0] * l[1] + gdot[1]*l[0] - wl * gz + ww * l[2];
 
-	float gnewSrc[] = {gx, gy, gz};
-	g = dspm::Mat(gnewSrc, 3, 1);
+	g(0, 0) = gx;
+	g(1, 0) = gy;
+	g(2, 0) = gz;
 }
 void Motion_control::filtaUpdate(){
 	//ESP_LOGD(TAG, "kalman Start");
 	//x = F*x + B*u + Q
-	//y = H*x + R
+	//y = H*x
 	
 	//x = [ax ay az vx vy vz]';
 	
 	//y= [ax ay az];
 	float ysrc[3] = {a(0, 0), a(1, 0), a(2, 0)};
 	dspm::Mat y(ysrc, 3, 1);
-
-	//F = [0 0 0 ]
-	float Fsrc[] = {
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0,
-		1, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 0, 0,
-		0, 0, 1, 0, 0, 0
-	};
-	dspm::Mat F(Fsrc, 6, 6);
 	
 	//x = *** + Bu
 	//Lift = -318.2*alpha cos成分は /1.4142 => 225.0*alpha
  	//u = [Thrust S1 S2  S3 S4]
-	float Bsrc[] = {
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0,
-
-		0, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
-		0, 225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
-		1.69f/100.0f/mass, 0, 0, 0, 0,
-	};
-	dspm::Mat B(Bsrc, 6, 5);
-
-	float Hsrc[] = {
-		1, 0, 0, 0, 0, 0,
-		0, 1, 0, 0, 0, 0,
-		0, 0, 1, 0, 0, 0,
-	};
-	dspm::Mat H(Hsrc, 3, 6);
-
-	float Qsrc[6] = {0};
-	dspm::Mat Q(Qsrc, 6, 6);
 
 	//x = Fx + Bu;
 	xhat = F * xhat + B * u;
 
 	//P = F P F' + Q
-	dspm::Mat P(6, 6);
 	P = F*P*F.t() + Q;
-
-	float Rsrc[] = {9, 0, 0,
-					0, 9, 0, 
-					0, 0, 9};
-	dspm::Mat R(Rsrc, 3, 3);
 
 	//K = P*H'*(R + H*P*H')^-1
 	dspm::Mat K(6, 3);
@@ -107,18 +71,23 @@ void Motion_control::update(){
     imu.readGyro();
     imu.readMag();
 	
-	//姿勢を変換数する+座標変換
-	Sensor2Body(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
-				imu.calcAccel(imu.ax) * gravity_c, imu.calcAccel(imu.ay) * gravity_c,  imu.calcAccel(imu.az) * gravity_c,
-				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
-    
+	a_grav(0, 0) = imu.calcAccel(imu.ax) * gravity_c;
+	a_grav(1, 0) = imu.calcAccel(imu.ay) * gravity_c;
+	a_grav(2, 0) = imu.calcAccel(imu.az) * gravity_c;
+
+	//センサの姿勢を計算
 	//azだけ重力加速度込みの値を入れる
-	madgwick.update(g(1, 0), g(2, 0), g(3, 0),
-					a_grav(1, 0), a_grav(2, 0), a_grav(3, 0),
-					m(1, 0), m(2, 0), m(3, 0));
+	madgwick.update(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
+					a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
+					imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
+	
+	//センサ座標系から重心の座標系へ
+	Sensor2Body(imu.calcGyro(imu.gx) * deg2rad, imu.calcGyro(imu.gy) * deg2rad, imu.calcGyro(imu.gz) * deg2rad,
+				a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
+				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
 
 	//姿勢から重力の分力を減算
-	float gv[] = {0.0, 0.0, gravity_c};
+	float gv[] = {0.0, 0.0, -gravity_c};
 	float gv_bsrc[3] = {0.0};
 	madgwick.trans(gv_bsrc, gv);
 	dspm::Mat gv_b(gv_bsrc, 3, 1);
@@ -126,11 +95,11 @@ void Motion_control::update(){
 	//LPF用の前回値
 	dspm::Mat a_old = a;
 	//重力加速度を引く
-	a = a_grav - gv_b;
+	a = a_grav + gv_b;
 
 	filtaUpdate();
-	//積分
-	//v = v + a * dt;
+	//ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", xhat(0, 0), xhat(1, 0), xhat(2, 0));
+	//ESP_LOGI(TAG, "raw%1.2f,%1.2f,%1.2f", a(0, 0), a(1, 0), a(2, 0));
 
 	//積分
 	//x = x + v * dt;

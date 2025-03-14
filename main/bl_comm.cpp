@@ -134,7 +134,7 @@ void Bl_comm::esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         ESP_LOGI(SPP_TAG, "ESP_SPP_CONG_EVT");
         break;
     case ESP_SPP_WRITE_EVT:
-        ESP_LOGI(SPP_TAG, "ESP_SPP_WRITE_EVT");
+        //ESP_LOGI(SPP_TAG, "ESP_SPP_WRITE_EVT");
         isWriting = false;
         break;
     case ESP_SPP_SRV_OPEN_EVT:

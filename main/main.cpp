@@ -59,14 +59,14 @@ void telemetry_task(){
     sprintf(msg, "Throttle %d,", Thrust->getPercent());
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "x,%4.f,%4.f,%4.f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
+    sprintf(msg, "x,%2.1f,%2.1f,%2.1f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
     bl_comm.sendMsg(msg); 
     
-    sprintf(msg, "v,%4.f,%4.f,%4.f,", motion.v(0, 0), motion.v(1, 0), motion.v(2, 0));
+    sprintf(msg, "v,%1.2f,%1.2f,%1.2f,", motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0));
     bl_comm.sendMsg(msg); 
 
-    sprintf(msg, "a,%4.f,%4.f,%4.f,", motion.a(0, 0), motion.a(1, 0), motion.a(2, 0));
-    bl_comm.sendMsg(msg); 
+    sprintf(msg, "a,%1.2f,%1.2f,%1.2f,", motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0));
+    bl_comm.sendMsg(msg);
 
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }

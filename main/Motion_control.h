@@ -8,17 +8,63 @@
 class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
-	dspm::Mat P;
-	dspm::Mat xhat;
 	dspm::Mat trans;
 public:
 	Motion_control(){
-		P = dspm::Mat(6, 6);
-		xhat = dspm::Mat(6, 1);
+		//x = [ax ay az vx vy vz]';
+		float Fsrc[] = {
+			1, 0, 0, 0, 0, 0,
+			0, 1, 0, 0, 0, 0,
+			0, 0, 1, 0, 0, 0,
+			dt, 0, 0, 1, 0, 0,
+			0, dt, 0, 0, 1, 0,
+			0, 0, dt, 0, 0, 1
+		};
+		F = dspm::Mat(Fsrc, 6, 6);
+
+		float Bsrc[] = {
+			0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0,
+
+			0, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
+			0, 225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, -225.0f*3.1415f/100.0f/mass, 225.0f*3.1415f/100.0f/mass,
+			1.69f/100.0f/mass, 0, 0, 0, 0,
+		};
+		B = dspm::Mat(Bsrc, 6, 5);
+
+		float Hsrc[] = {
+			1, 0, 0, 0, 0, 0,
+			0, 1, 0, 0, 0, 0,
+			0, 0, 1, 0, 0, 0,
+		};
+		H = dspm::Mat(Hsrc, 3, 6);
+
+		float Qsrc[6*6] = {
+			0.01, 0, 0, 0, 0, 0,
+			0, 0.01, 0, 0, 0, 0,
+			0, 0, 0.01, 0, 0, 0,
+			0, 0, 0, 0.01, 0, 0,
+			0, 0, 0, 0, 0.01, 0,
+			0, 0, 0, 0, 0, 0.01,
+		};
+		Q = dspm::Mat(Qsrc, 6, 6);
+
+		float Rsrc[] = {
+			0.3, 0, 0,
+			0, 0.3, 0, 
+			0, 0, 0.3
+		};
+		R = dspm::Mat(Rsrc, 3, 3);
+
+		for (int i = 0; i < 5; i++)
+		{
+			u(i, 0) = 0.0;	
+		}
 	}
 
 	const float gravity_c = 9.80665;
-	const float deg2rad = 0.017453;
+	const float deg2rad = 0.0174533;
 	const float rad2deg = 1.0/rad2deg;
 	float a0[3] = {0};
 	float g0[3] = {0};
@@ -30,6 +76,9 @@ public:
 	dspm::Mat v = dspm::Mat(3, 1);
 	dspm::Mat x = dspm::Mat(3, 1);
 	dspm::Mat u = dspm::Mat(5, 1);
+	dspm::Mat F, B, H, Q, R;
+	dspm::Mat P = dspm::Mat::eye(6);
+	dspm::Mat xhat = dspm::Mat(6, 1);
 	float gdot[3] = {0};
 	float thetadot[3] = {0};
 	float dt = 0.05f;
