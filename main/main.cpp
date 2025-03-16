@@ -87,7 +87,7 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
     //ESP_LOGI("Timer", "reading.. imu");
     motion.update();
     if(isControlEnable){
-        Thrust->setPWM((motion.u(0, 0) + 50.0f));
+        //Thrust->setPWM((motion.u(0, 0)));
         Servo1->setPWM((motion.u(1, 0) + 50.0f));
         Servo2->setPWM((motion.u(2, 0) + 50.0f));
         Servo3->setPWM((motion.u(3, 0) + 50.0f));
