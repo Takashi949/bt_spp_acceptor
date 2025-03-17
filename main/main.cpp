@@ -163,7 +163,7 @@ static void i2c_master_init(float sampleFreq)
         .glitch_ignore_cnt = 4,
         .intr_priority = 3,
         .flags{
-            .enable_internal_pullup = true,
+            .enable_internal_pullup = false,
         },
     };
     i2c_master_bus_handle_t bus_handle;
@@ -222,8 +222,8 @@ static void pwm_init(){
 
     Servo1 = new Motor(GPIO_NUM_4, operServo, 900, 2100);
     Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
-    Servo3 = new Motor(GPIO_NUM_2, operServo2, 900, 2100);
-    Servo4 = new Motor(GPIO_NUM_0, operServo2, 900, 2100);
+    Servo3 = new Motor(GPIO_NUM_15, operServo2, 900, 2100);
+    Servo4 = new Motor(GPIO_NUM_2, operServo2, 900, 2100);
     Servo1->begin();
     Servo2->begin();
     Servo3->begin();
