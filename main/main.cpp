@@ -56,7 +56,7 @@ void telemetry_task(){
     sprintf(msg, "imu,%4.f,%4.f,%4.f,", pry[0], pry[1], pry[2]);
     bl_comm.sendMsg(msg);
 
-    sprintf(msg, "Throttle %d,", Thrust->getPercent());
+    sprintf(msg, "Throttle %d,", (int)Thrust->getPercent());
     bl_comm.sendMsg(msg);
 
     sprintf(msg, "x,%2.1f,%2.1f,%2.1f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
@@ -106,7 +106,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
             if(Thrust->getPercent() != val){
                 //set the throttle value
                 ESP_ERROR_CHECK(Thrust->setPWM(val));   
-                sprintf(SPPmsg, "Throttole %d,", Thrust->getPercent());
+                sprintf(SPPmsg, "Throttole %d,", (int)Thrust->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'r'){
@@ -116,7 +116,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
             if(Servo1->getPercent() != val){
                 //set the Angle value
                 ESP_ERROR_CHECK(Servo1->setPWM(val));
-                sprintf(SPPmsg, "Servo1 %d,", Servo1->getPercent());
+                sprintf(SPPmsg, "Servo1 %d,", (int)Servo1->getPercent());
             }
         }
     }else if(msg[0] == 'c' && msg[1] == 'l'){
@@ -126,7 +126,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
             if(Servo2->getPercent() != val){
                 //set the Angle value
                 ESP_ERROR_CHECK(Servo2->setPWM(val));   
-                sprintf(SPPmsg, "Servo2 %d,", Servo2->getPercent());
+                sprintf(SPPmsg, "Servo2 %d,", (int)Servo2->getPercent());
             }
         }
     }else if(msg[0] == 'b' && msg[1] == 'c'){
@@ -250,7 +250,7 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Own address:[%s]", bl_comm.get_bt_addr());
 
     ESP_LOGI(TAG, "Create IMU");
-    const int IMU_sampling_ms = 50;
+    const int IMU_sampling_ms = 10;
     i2c_master_init(1000/IMU_sampling_ms);
     // タイマーを作成し、コールバック関数を設定します。
     TimerHandle_t timer = xTimerCreate("IMU Timer", pdMS_TO_TICKS(IMU_sampling_ms), pdTRUE, (void *) 1, timer_callback);

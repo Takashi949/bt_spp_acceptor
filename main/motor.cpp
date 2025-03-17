@@ -14,6 +14,7 @@ Motor::Motor(int pin, mcpwm_oper_handle_t _oper, uint16_t min_pulse, uint16_t ma
     gpio_pin_num = pin;
     min_pulse_us = min_pulse;
     max_pulse_us = max_pulse;
+    dpulse = ((float)max_pulse_us - (float)min_pulse_us)/100.0f;
     oper = _oper;
     ESP_LOGI(MOTOR_TAG, "Create comparator and generator from the operator");
 
@@ -41,16 +42,24 @@ void Motor::begin(){
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(generator,
                                                                 MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, comparator, MCPWM_GEN_ACTION_LOW)));
 }
-uint8_t Motor::getPercent(){
+float Motor::getPercent(){
     return percent;
 }
-esp_err_t Motor::setPWM(uint8_t percentage){
+esp_err_t Motor::setPWM(float percentage){
     esp_err_t err = ESP_OK;
-    if((err = mcpwm_comparator_set_compare_value(comparator, (max_pulse_us - min_pulse_us)/100 * percentage + min_pulse_us)) != ESP_OK){
+    if(percentage > 100){
+        percentage = 100;
+    }else if(percentage == percent){
+        return ESP_OK;
+    }
+    else if(percentage < 0){
+        percentage = 0;
+    }
+
+    if((err = mcpwm_comparator_set_compare_value(comparator, dpulse * percentage + (float)min_pulse_us)) != ESP_OK){
         ESP_LOGE(MOTOR_TAG, "%s", esp_err_to_name(err));
         return err;
     }
-    oldPercent = percent;
     percent = percentage;
     return ESP_OK;
 }
