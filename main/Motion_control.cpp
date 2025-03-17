@@ -20,14 +20,12 @@ void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float a
 	gdot[1] = (gy - g(1, 0))/dt;
 	gdot[2] = (gz - g(2, 0))/dt;
 
-	float l[] = {0, 0.14524, -0.057685};
-
-	float wl = gx*l[0] + gy*l[1] + gz*l[2];
+	float wl = gx*x_IMU[0] + gy*x_IMU[1] + gz*x_IMU[2];
 	float ww = gx * gx + gy * gy + gz * gz;
 
-	a(0, 0) = ax - gdot[1] * l[2] + gdot[2]*l[1] - wl * gx + ww * l[0];
-	a(1, 0) = ay - gdot[2] * l[0] + gdot[0]*l[2] - wl * gy + ww * l[1];
-	a(2, 0) = az - gdot[0] * l[1] + gdot[1]*l[0] - wl * gz + ww * l[2];
+	a(0, 0) = ax - gdot[1] * x_IMU[2] + gdot[2]*x_IMU[1] - wl * gx + ww * x_IMU[0];
+	a(1, 0) = ay - gdot[2] * x_IMU[0] + gdot[0]*x_IMU[2] - wl * gy + ww * x_IMU[1];
+	a(2, 0) = az - gdot[0] * x_IMU[1] + gdot[1]*x_IMU[0] - wl * gz + ww * x_IMU[2];
 
 	g(0, 0) = gx;
 	g(1, 0) = gy;
@@ -98,13 +96,13 @@ void Motion_control::update(){
 	//重力加速度を引く
 	a = a_grav + gv_b;
 
-	filtaUpdate();
+	//filtaUpdate();
 
 	calcU();
 	
 	//ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", xhat(0, 0), xhat(1, 0), xhat(2, 0));
 	//ESP_LOGI(TAG, "raw%1.2f,%1.2f,%1.2f", a(0, 0), a(1, 0), a(2, 0));
-	//ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
+	ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
 }
 void Motion_control::calcU(){
 	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), madgwick.getYawRadians()};

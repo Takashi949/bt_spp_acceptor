@@ -9,6 +9,7 @@ class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
 	dspm::Mat trans;
+	float x_IMU[3] = {0, 0.14524, -0.057685};
 public:
 	Motion_control(){
 		//x = [ax ay az vx vy vz]';
