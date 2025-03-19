@@ -101,34 +101,19 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
 
     if(msg[0] == 'c' && msg[1] == 't'){
         //char*から三桁の数字に変換
-        uint8_t val = msg[2];   
-        if(val <= 100){
-            if(Thrust->getPercent() != val){
-                //set the throttle value
-                ESP_ERROR_CHECK(Thrust->setPWM(val));   
-                sprintf(SPPmsg, "Throttole %d,", (int)Thrust->getPercent());
-            }
-        }
+        uint8_t val = msg[2];
+        ESP_ERROR_CHECK(Thrust->setPWM(val));   
+        sprintf(SPPmsg, "Throttole %d,", (int)Thrust->getPercent());
     }else if(msg[0] == 'c' && msg[1] == 'r'){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
-        if(val <= 100){
-            if(Servo1->getPercent() != val){
-                //set the Angle value
-                ESP_ERROR_CHECK(Servo1->setPWM(val));
-                sprintf(SPPmsg, "Servo1 %d,", (int)Servo1->getPercent());
-            }
-        }
+        ESP_ERROR_CHECK(Servo1->setPWM(val));
+        sprintf(SPPmsg, "Servo1 %d,", (int)Servo1->getPercent());
     }else if(msg[0] == 'c' && msg[1] == 'l'){
         //char*から三桁の数字に変換
         uint8_t val = msg[2];
-        if(val <= 100){
-            if(Servo2->getPercent() != val){
-                //set the Angle value
-                ESP_ERROR_CHECK(Servo2->setPWM(val));   
-                sprintf(SPPmsg, "Servo2 %d,", (int)Servo2->getPercent());
-            }
-        }
+        ESP_ERROR_CHECK(Servo2->setPWM(val));   
+        sprintf(SPPmsg, "Servo2 %d,", (int)Servo2->getPercent());
     }else if(msg[0] == 'b' && msg[1] == 'c'){
         //制御開始
         isControlEnable = true;
@@ -193,11 +178,7 @@ static void pwm_init(){
         .group_id = 0, // operator must be in the same group to the timer
     };
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper));
-
-    ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper, timer));
-
-    ESP_LOGI(TAG, "Enable and start timer");
     ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
     ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
 
@@ -209,15 +190,11 @@ static void pwm_init(){
     //servo
     mcpwm_oper_handle_t operServo = NULL;
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &operServo));
-
-    ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo, timer));
 
     //comparaterが足りないのでoperatorを追加
     mcpwm_oper_handle_t operServo2 = NULL;
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &operServo2));
-
-    ESP_LOGI(TAG, "Connect timer and operator");
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo2, timer));
 
     Servo1 = new Motor(GPIO_NUM_4, operServo, 900, 2100);
