@@ -7,6 +7,10 @@
 #define SPP_SERVER_NAME "ESP_DRONE"
 #define EXAMPLE_DEVICE_NAME "ESP_THRUST"
 
+enum class BT_CMD {
+    CT, CU1, CU2, CU3, CU4, BC, EC,
+};
+
 class Bl_comm {
     char bda_str[18] = {0};
     static bool isWriting;
