@@ -53,14 +53,13 @@ void telemetry_task(){
     float pry[3];
     motion.getPRY(pry);
 
-    //Throttle PRY x v a u 
+    //PRY x v a u 
     char msg[] = {
-        Thrust->getPercent(),
         pry[0], pry[1], pry[2],
         motion.x(0, 0), motion.x(1, 0), motion.x(2, 0),
         motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0),
         motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0),
-        motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0)
+        motion.u(0, 0), motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0)
     };
     bl_comm.sendMsg(msg);
 
