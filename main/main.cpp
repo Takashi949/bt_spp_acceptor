@@ -60,7 +60,7 @@ void telemetry_task(){
         motion.x(0, 0), motion.x(1, 0), motion.x(2, 0),
         motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0),
         motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0),
-        motion.u(0, 0), motion.u(1, 0), motion.u(2, 0)
+        motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0)
     };
     bl_comm.sendMsg(msg);
 
@@ -141,8 +141,8 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     {
         ESP_LOGI(TAG, "MSG Write to SPP.");
         ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
-
-        bl_comm.sendMsg(SPPmsg);
+        //テキストを識別するために先頭に文字を追加t
+        bl_comm.sendMsg('t' + SPPmsg);
     }
 }
 
