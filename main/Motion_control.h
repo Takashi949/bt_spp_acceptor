@@ -9,7 +9,7 @@ class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
 	dspm::Mat trans;
-	float x_IMU[3] = {0, 0.14524, -0.057685};
+	float x_IMU[3] = {0, 0.120176, -0.052888};
 public:
 	Motion_control(){
 		//x = [ax ay az vx vy vz]';
@@ -93,43 +93,8 @@ public:
 	float gdot[3] = {0};
 	float thetadot[3] = {0};
 	float dt = 0.05f;
-	/* 	{
-		{cos30, -sin30, 0},
-		{-sin30, -cos30, 0},
-		{0, 0, 1}
-	} */
+	float mass = 1.302975;
 
-	//質量 kg
-	const float mass = 3.064;
-	//体積 mm3
-	const float V = 4600.0E-9;
-	//IMUセンサから重心までの距離 m
-	const float CG[3] = {-73.538E-3, 45.016E-3, -19.658e-3};
-	//操舵面と重心の距離 m
-	//y軸の正負で右左を変える
-	const float ECG[3] = {6.565E-3, -33.663E-3, -63.053E-3};
-	/*
-	長さ	217.098 mm
-	幅	221.586 mm
-	高さ	174.50 mm
-	*/
-	//	重心の慣性モーメント   (g mm^2)
-	const float J[3][3] = {
-		{ 1.546E+06, -2.701E+05,30139.423},
-		{ -2.701E+05,2.660E+06,-7183.935},
-		{30139.423,-7183.935 ,3.000E+06}
-	};
-
-	//ろーたーの質量 kg
-	const float mass_r = 57.756E-3;
-	//ローターの重心
-	const float CG_r[3] = {-0.001E-3, 0.00E-3, 60.326E-3};
-	//ローターの重心の慣性モーメント   (g mm^2)
-	const float J_r[3][3] =	{
-		{24772.756, 0.197, -0.272},
-		{0.197, 24772.398, -0.066},
-		{-0.272, -0.066, 42970.999}
-	};
 	void begin(float sampleFreq, i2c_master_bus_handle_t bus_handle);
     void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
     void filtaUpdate();
