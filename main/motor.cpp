@@ -47,16 +47,16 @@ float Motor::getPercent(){
 }
 esp_err_t Motor::setPWM(float percentage){
     esp_err_t err = ESP_OK;
-    if(percentage > 100){
-        percentage = 100;
+    if(percentage > 100.0f){
+        percentage = 100.0f;
     }else if(percentage == percent){
         return ESP_OK;
     }
-    else if(percentage < 0){
-        percentage = 0;
+    else if(percentage < 0.0f){
+        percentage = 0.0f;
     }
 
-    if((err = mcpwm_comparator_set_compare_value(comparator, dpulse * percentage + (float)min_pulse_us)) != ESP_OK){
+    if((err = mcpwm_comparator_set_compare_value(comparator, static_cast<uint32_t>(dpulse * percentage + (float)min_pulse_us))) != ESP_OK){
         ESP_LOGE(MOTOR_TAG, "%s", esp_err_to_name(err));
         return err;
     }

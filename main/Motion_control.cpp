@@ -96,13 +96,13 @@ void Motion_control::update(){
 	//重力加速度を引く
 	a = a_grav + gv_b;
 
-	//filtaUpdate();
+	filtaUpdate();
 
 	calcU();
 	
 	//ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", xhat(0, 0), xhat(1, 0), xhat(2, 0));
 	//ESP_LOGI(TAG, "raw%1.2f,%1.2f,%1.2f", a(0, 0), a(1, 0), a(2, 0));
-	ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
+	//ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
 }
 void Motion_control::calcU(){
 	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), madgwick.getYawRadians()};

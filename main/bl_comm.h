@@ -32,5 +32,5 @@ public:
 
     bool isClientConnecting();
     void setCommandCb(void (*command_cb)(uint8_t* data, uint16_t len));
-    esp_err_t sendMsg(char* msg);
+    esp_err_t sendMsg(char* msg, uint8_t len);
 };

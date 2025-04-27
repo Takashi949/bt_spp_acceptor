@@ -218,7 +218,7 @@ char* Bl_comm::get_bt_addr(){
 bool Bl_comm::isClientConnecting(){
     return isConnecting;
 }
-esp_err_t Bl_comm::sendMsg(char* msg){
+esp_err_t Bl_comm::sendMsg(char* msg, uint8_t len){
     if(isWriting){
         ESP_LOGW(SPP_TAG, "SPP Write BUSY");
         return ESP_SPP_BUSY;
@@ -229,7 +229,7 @@ esp_err_t Bl_comm::sendMsg(char* msg){
     }
 
     isWriting = true;
-    return esp_spp_write(clientHandle, strlen(msg), (uint8_t *)msg);
+    return esp_spp_write(clientHandle, len, (uint8_t *)msg);
 }
 void Bl_comm::setCommandCb(void (*cb)(uint8_t* data, uint16_t len)){
     Bl_comm::command_cb = cb;

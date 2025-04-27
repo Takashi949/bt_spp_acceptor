@@ -50,24 +50,20 @@ bool isControlEnable = false;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
 void telemetry_task(){
     //ESP_LOGI("Telem", "sending imu");
-    char msg[32];
     float pry[3];
     motion.getPRY(pry);
-    sprintf(msg, "imu,%4.f,%4.f,%4.f,", pry[0], pry[1], pry[2]);
-    bl_comm.sendMsg(msg);
+    //ESP_LOGI(TAG, "PRY: %1.2f,%1.2f,%1.2f", pry[0], pry[1], pry[2]);  
 
-    sprintf(msg, "Throttle %d,", (int)Thrust->getPercent());
-    bl_comm.sendMsg(msg);
-
-    sprintf(msg, "x,%2.1f,%2.1f,%2.1f,", motion.x(0, 0), motion.x(1, 0), motion.x(2, 0));
-    bl_comm.sendMsg(msg); 
+    //Throttle PRY x v a u  
+    float msg[] = {Thrust->getPercent(),
+        pry[0], pry[1], pry[2],
+        motion.x(0, 0), motion.x(1, 0), motion.x(2, 0),
+        motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0),
+        motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0),
+        motion.u(0, 0), motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0),};
     
-    sprintf(msg, "v,%1.2f,%1.2f,%1.2f,", motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0));
-    bl_comm.sendMsg(msg); 
-
-    sprintf(msg, "a,%1.2f,%1.2f,%1.2f,", motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0));
-    bl_comm.sendMsg(msg);
-
+    //ESP_LOGI(TAG, "msg len %d", sizeof(msg));
+    bl_comm.sendMsg((char *)msg, sizeof(msg));
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
@@ -77,7 +73,7 @@ void bl_telemetry_callback(TimerHandle_t xTimer)
         // 新たなタスクを作成してメッセージを送信します。
 
         //ESP_LOGI("Timer", "telemetring");
-        xTaskCreate( (TaskFunction_t)telemetry_task, "TelemetryTask", 2048, NULL, 1, &bl_telem_handle_t);
+        xTaskCreate( (TaskFunction_t)telemetry_task, "TelemetryTask", 4096, NULL, 1, &bl_telem_handle_t);
     }
 }
 
@@ -98,43 +94,48 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
     char SPPmsg[32] = "";
-
-    if(msg[0] == 'c' && msg[1] == 't'){
-        //char*から三桁の数字に変換
-        uint8_t val = msg[2];
-        ESP_ERROR_CHECK(Thrust->setPWM(val));   
-        sprintf(SPPmsg, "Throttole %d,", (int)Thrust->getPercent());
-    }else if(msg[0] == 'c' && msg[1] == 'r'){
-        //char*から三桁の数字に変換
-        uint8_t val = msg[2];
-        ESP_ERROR_CHECK(Servo1->setPWM(val));
-        sprintf(SPPmsg, "Servo1 %d,", (int)Servo1->getPercent());
-    }else if(msg[0] == 'c' && msg[1] == 'l'){
-        //char*から三桁の数字に変換
-        uint8_t val = msg[2];
-        ESP_ERROR_CHECK(Servo2->setPWM(val));   
-        sprintf(SPPmsg, "Servo2 %d,", (int)Servo2->getPercent());
-    }else if(msg[0] == 'b' && msg[1] == 'c'){
-        //制御開始
-        isControlEnable = true;
-        sprintf(SPPmsg, "Begin Control");
-    }else if(msg[0] == 'e' && msg[1] == 'c'){
-        //制御終了
-        isControlEnable = false;
-        sprintf(SPPmsg, "End Control");
-    }
-    else {
-        ESP_LOGI(TAG, "Unknow command Recieved.");
-        sprintf(SPPmsg, "Unknow command Recieved.");
-    }
-
-    //もしBlueToothがつながってたら送信する
-    if (bl_comm.isClientConnecting())
+    float val;
+    uint32_t temp; 
+    memcpy(&temp, &msg[1], sizeof(float));
+    temp = __builtin_bswap32(temp); // Big-endian ↔ Little-endian変換
+    memcpy(&val, &temp, sizeof(float));
+    ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
+    switch (msg[0])
     {
-        ESP_LOGI(TAG, "MSG Write to SPP.");
-        ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
+    case 0:
+        /* code */
+        ESP_ERROR_CHECK(Thrust->setPWM(val));   
+        break;
+    case 1:
+        ESP_ERROR_CHECK(Servo1->setPWM(val));
+        break;
+    case 2:
+        ESP_ERROR_CHECK(Servo2->setPWM(val));
+        break;
+    case 3:
+        ESP_ERROR_CHECK(Servo3->setPWM(val));
+        break;
+    case 4:
+        ESP_ERROR_CHECK(Servo4->setPWM(val));
+        break;
+    case 5:
+        isControlEnable = true;
+        break;   
+    case 6:
+        isControlEnable = false;
+        break;
+    default:
+        ESP_LOGI(TAG, "Unknow command Recieved.");
+        sprintf(SPPmsg, "tUnknow command Recieved.");
+        //もしBlueToothがつながってたら送信する
+        if (bl_comm.isClientConnecting())
+        {
+            ESP_LOGI(TAG, "MSG Write to SPP.");
+            ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
 
-        bl_comm.sendMsg(SPPmsg);
+            bl_comm.sendMsg(SPPmsg, strlen(SPPmsg));
+        }
+        break;
     }
 }
 
@@ -148,7 +149,7 @@ static void i2c_master_init(float sampleFreq)
         .glitch_ignore_cnt = 4,
         .intr_priority = 3,
         .flags{
-            .enable_internal_pullup = false,
+            .enable_internal_pullup = true,
         },
     };
     i2c_master_bus_handle_t bus_handle;
