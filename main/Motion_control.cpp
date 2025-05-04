@@ -7,11 +7,11 @@
 #include "dsp_platform.h"
 #include "mat.h"
 
-void Motion_control::begin(i2c_master_bus_handle_t bus_handle){
+void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
-	madgwick.begin(1.0/dt);
+	madgwick.begin(sampleFreq);
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float gsrc[] = {gx, gy, gz};

@@ -96,10 +96,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
     char SPPmsg[32] = "";
     float val;
-    uint32_t temp; 
-    memcpy(&temp, &msg[1], sizeof(float));
-    temp = __builtin_bswap32(temp); // Big-endian ↔ Little-endian変換
-    memcpy(&val, &temp, sizeof(float));
+    memcpy(&val, &msg[1], sizeof(float));
     ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
     switch (msg[0])
     {
@@ -125,6 +122,24 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     case 6:
         isControlEnable = false;
         break;
+    case 7:
+        memcpy(&motion.KC.data[0], &msg[1], sizeof(float) * 6);
+        break;
+    case 8:
+        memcpy(&motion.KC.data[1 * 6], &msg[1], sizeof(float) * 6);
+        break;
+        case 9:
+        memcpy(&motion.KC.data[2 * 6], &msg[1], sizeof(float) * 6);
+        break;
+    case 10:
+        memcpy(&motion.KC.data[3 * 6], &msg[1], sizeof(float) * 6);
+        break;
+    case 11:
+        memcpy(&motion.KC.data[4 * 6], &msg[1], sizeof(float) * 6);
+        break;
+    case 12:
+        memcpy(&motion.KC.data[5 * 6], &msg[1], sizeof(float) * 6);
+        break;
     default:
         ESP_LOGI(TAG, "Unknow command Recieved.");
         sprintf(SPPmsg, "tUnknow command Recieved.");
@@ -140,7 +155,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     }
 }
 
-static void i2c_master_init()
+static void i2c_master_init(float sampleFreq)
 {
     i2c_master_bus_config_t bus_conf = {
         .i2c_port = -1,
@@ -150,14 +165,14 @@ static void i2c_master_init()
         .glitch_ignore_cnt = 4,
         .intr_priority = 3,
         .flags{
-            .enable_internal_pullup = true,
+            .enable_internal_pullup = false,
         },
     };
     i2c_master_bus_handle_t bus_handle;
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
-    motion.begin(bus_handle);
+    motion.begin(sampleFreq, bus_handle);
     //motion.correctInitValue(100);
 }
 

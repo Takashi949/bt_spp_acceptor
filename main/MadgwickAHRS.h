@@ -33,7 +33,6 @@ private:
     float pitch;
     float yaw;
     char anglesComputed;
-    float qDot1, qDot2, qDot3, qDot4;
     float wx, wy, wz;
     void computeAngles();
 
