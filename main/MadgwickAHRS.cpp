@@ -246,6 +246,11 @@ void Madgwick::computeAngles()
 	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
 	anglesComputed = 1;
 }
+void Madgwick::calcW(){
+	wx = 2.0 *(qDot1 * q3 + qDot2 * q2 - qDot3 * q1 - qDot4 * q0);
+	wy = 2.0 *(qDot2 * q3 + qDot3 * q0 - qDot1 * q2 - qDot4 * q1);
+	wz = 2.0 *(qDot3 * q3 + qDot1 * q1 - qDot2 * q0 - qDot4 * q2);
+}
 
 void Madgwick::trans(float *rv, float *v){
 	float R[3][3] = {

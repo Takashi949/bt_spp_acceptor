@@ -7,12 +7,11 @@
 #include "dsp_platform.h"
 #include "mat.h"
 
-void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
+void Motion_control::begin(i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
-	dt = 1.0f/sampleFreq;
-	madgwick.begin(sampleFreq);
+	madgwick.begin(1.0/dt);
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float gsrc[] = {gx, gy, gz};
@@ -56,9 +55,9 @@ void Motion_control::filtaUpdate(){
 	//K = P*H'*(R + H*P*H')^-1
 	dspm::Mat K(6, 3);
 	K = P*H.t()*(R + H*P*H.t()).inverse();
-	
+
 	//xhat = xhat + K(y-Hx)
-	xhat = xhat + K*(y-H*xhat);
+	xhat += K*(y-H*xhat);
 
 	//P = (I-KH)P
 	P = (dspm::Mat::eye(6) - K*H)*P;
@@ -92,7 +91,8 @@ void Motion_control::update(){
 	dspm::Mat gv_b(gv_bsrc, 3, 1);
 
 	//LPF用の前回値
-	dspm::Mat a_old = a;
+	//dspm::Mat a_old = a;
+
 	//重力加速度を引く
 	a = a_grav + gv_b;
 

@@ -2,6 +2,7 @@
 #include "MadgwickAHRS.h"
 #include "esp_dsp.h"
 #include "dsp_platform.h"
+#include <string.h>
 
 #define TAG "MOTION"
 

@@ -35,6 +35,7 @@
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
 
 #define TAG "ESP_SPP_DRONE"
+const float IMU_sampling_ms = 50;
 
 Bl_comm bl_comm;
 void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
@@ -139,7 +140,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     }
 }
 
-static void i2c_master_init(float sampleFreq)
+static void i2c_master_init()
 {
     i2c_master_bus_config_t bus_conf = {
         .i2c_port = -1,
@@ -156,7 +157,7 @@ static void i2c_master_init(float sampleFreq)
 
     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_conf, &bus_handle));
 
-    motion.begin(sampleFreq, bus_handle);
+    motion.begin(bus_handle);
     //motion.correctInitValue(100);
 }
 
