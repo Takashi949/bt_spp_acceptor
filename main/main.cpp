@@ -46,8 +46,6 @@ Motion_control motion;
     Bl_comm bl_comm;
     void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
     uint32_t Bl_comm::clientHandle = 0;
-    bool Bl_comm::isConnecting = false;
-    bool Bl_comm::isWriting = false;
 #else
     #include "ble_gatt_comm.h"
     void (*Ble_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb;
@@ -56,8 +54,6 @@ Motion_control motion;
         motion.u.data, 
         motion.KCsrc
     );
-    bool Ble_comm::isConnecting = false;
-    bool Ble_comm::isWriting = false;
 #endif
 
 TaskHandle_t bl_telem_handle_t = NULL;

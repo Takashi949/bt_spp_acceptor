@@ -50,8 +50,6 @@ enum
     IDX_CHAR_CFG_D,
     
     IDX_CHAR_E,
-    IDX_CHAR_VAL_E,
-    IDX_CHAR_CFG_E,
     IDX_NB,
 };
 typedef struct {

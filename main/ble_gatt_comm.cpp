@@ -114,8 +114,9 @@ prepare_type_env_t *Ble_comm::env_list[5];
 
 gatts_profile_inst Ble_comm::profile_tab[PROFILE_NUM] = {
     {
-        Ble_comm::gatts_profile_event_handler,
-        ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+        .gatts_cb = Ble_comm::gatts_profile_event_handler,
+        .gatts_if =ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+        .conn_id = 0xFFFF,                /* Not get the conn_id, so initial is 0xFFFF */
     },
 };
 void Ble_comm::gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
@@ -377,10 +378,12 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
             conn_params.timeout = 400;    // timeout = 400*10ms = 4000ms
             //start sent the update connection parameters to the peer device.
             esp_ble_gap_update_conn_params(&conn_params);
+            Ble_comm::profile_tab[PROFILE_APP_IDX].conn_id = param->connect.conn_id;
             break;
         }
         case ESP_GATTS_DISCONNECT_EVT:{
             ESP_LOGI(GATTS_TABLE_TAG, "ESP_GATTS_DISCONNECT_EVT, reason = 0x%x", param->disconnect.reason);
+            Ble_comm::profile_tab[PROFILE_APP_IDX].conn_id = 0xFFFF; // または -1
             esp_ble_gap_start_advertising(const_cast<esp_ble_adv_params_t*>(&Ble_comm::adv_params));
             break;
         }
@@ -485,13 +488,22 @@ esp_err_t Ble_comm::begin(void){
     return ESP_OK;
 }
 void Ble_comm::sendMsg(char *msg, unsigned char len) {
-    if (Ble_comm::profile_tab[PROFILE_APP_IDX].gatts_if != ESP_GATT_IF_NONE) {
-        esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
-                                    notify_targets[0].val_handle, len, (uint8_t*)msg, false);
+    // 接続中かつconn_idが有効な場合のみ送信
+    if (Ble_comm::profile_tab[PROFILE_APP_IDX].gatts_if != ESP_GATT_IF_NONE &&
+        Ble_comm::profile_tab[PROFILE_APP_IDX].conn_id != 0xFFFF) {
+        esp_ble_gatts_send_indicate(
+            profile_tab[PROFILE_APP_IDX].gatts_if,
+            profile_tab[PROFILE_APP_IDX].conn_id,
+            notify_targets[0].val_handle,
+            len,
+            (uint8_t*)msg,
+            false
+        );
     }
 }
 void Ble_comm::sendTelemetry(){
-    if (Ble_comm::profile_tab[PROFILE_APP_IDX].gatts_if != ESP_GATT_IF_NONE) {
+    if (Ble_comm::profile_tab[PROFILE_APP_IDX].gatts_if != ESP_GATT_IF_NONE &&
+        Ble_comm::profile_tab[PROFILE_APP_IDX].conn_id != 0xFFFF) {
         // Notify Xhat telemetry
         esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
                                     notify_targets[0].val_handle, notify_targets[0].value_len, notify_targets[0].value_ptr, false);
