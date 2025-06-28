@@ -70,6 +70,7 @@ esp_err_t Bl_comm::begin(){
     esp_bt_pin_code_t pin_code;
     esp_bt_gap_set_pin(pin_type, 0, pin_code);
 
+    ESP_LOGI("BL Comm", "Own address:[%s]", get_bt_addr());
     return ret;
 }
 

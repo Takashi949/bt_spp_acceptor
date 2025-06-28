@@ -23,7 +23,6 @@
 #include "driver/mcpwm_cmpr.h"
 #include "driver/mcpwm_oper.h"
 #include "driver/mcpwm_gen.h"
-#include "bl_comm.h"
 
 #include "ESP32_i2c_LSM9DS1.h"
 #include "MadgwickAHRS.h"
@@ -37,14 +36,29 @@
 #define TAG "ESP_SPP_DRONE"
 const float IMU_sampling_ms = 50;
 
-Bl_comm bl_comm;
-void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
-uint32_t Bl_comm::clientHandle = 0;
-bool Bl_comm::isConnecting = false;
-bool Bl_comm::isWriting = false;
+//#define COMM_MODE_BT_SPP
 
 Motor *Thrust, *Servo1, *Servo2, *Servo3, *Servo4;
 Motion_control motion;
+
+#ifdef COMM_MODE_BT_SPP
+    #include "bl_comm.h"
+    Bl_comm bl_comm;
+    void (*Bl_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb; // or assign it to a valid function
+    uint32_t Bl_comm::clientHandle = 0;
+    bool Bl_comm::isConnecting = false;
+    bool Bl_comm::isWriting = false;
+#else
+    #include "ble_gatt_comm.h"
+    void (*Ble_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb;
+    Ble_comm bl_comm(
+        motion.xhat.data, 
+        motion.u.data, 
+        motion.KCsrc
+    );
+    bool Ble_comm::isConnecting = false;
+    bool Ble_comm::isWriting = false;
+#endif
 
 TaskHandle_t bl_telem_handle_t = NULL;
 bool isControlEnable = false;
@@ -56,15 +70,21 @@ void telemetry_task(){
     //ESP_LOGI(TAG, "PRY: %1.2f,%1.2f,%1.2f", pry[0], pry[1], pry[2]);  
 
     //Throttle PRY x v a u  
+    #ifdef COMM_MODE_BT_SPP
     float msg[] = {Thrust->getPercent(),
         pry[0], pry[1], pry[2],
         motion.x(0, 0), motion.x(1, 0), motion.x(2, 0),
         motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0),
         motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0),
-        motion.u(0, 0), motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0),};
-    
+        motion.u(0, 0), motion.u(1, 0), motion.u(2, 0), motion.u(3, 0), motion.u(4, 0)
+    };
+        
     //ESP_LOGI(TAG, "msg len %d", sizeof(msg));
     bl_comm.sendMsg((char *)msg, sizeof(msg));
+    #else
+    bl_comm.sendTelemetry();
+    #endif
+
     vTaskDelete(bl_telem_handle_t); // タスクを削除します。
 }
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
@@ -241,7 +261,6 @@ extern "C" void app_main(void)
     
     bl_comm.setCommandCb(command_cb);
     ESP_ERROR_CHECK(bl_comm.begin());
-    ESP_LOGI(TAG, "Own address:[%s]", bl_comm.get_bt_addr());
 
     ESP_LOGI(TAG, "Create IMU");
     const int IMU_sampling_ms = 10;

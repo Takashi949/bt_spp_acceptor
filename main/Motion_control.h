@@ -90,6 +90,7 @@ public:
 	dspm::Mat x = dspm::Mat(3, 1);
 	dspm::Mat u = dspm::Mat(5, 1);
 	dspm::Mat F, B, H, Q, R, KC;
+	float *KCsrc = KC.data;
 	dspm::Mat P = dspm::Mat::eye(6);
 	dspm::Mat xhat = dspm::Mat(6, 1);
 	float gdot[3] = {0};
