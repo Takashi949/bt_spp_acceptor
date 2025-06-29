@@ -22,7 +22,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /* Xhat Notify Characteristic Declaration */
     [IDX_CHAR_A]     =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_notify}},
+    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write_notify}},
 
     /*  Xhat Notify Value */
     [IDX_CHAR_VAL_A] =
@@ -31,13 +31,13 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
 
     /* Xhat Notify  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_A]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ,
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
     sizeof(uint16_t), sizeof(uint16_t), (uint8_t *)Ble_comm::cfg_val_on}},
 
     /*PRY Characteristic Declaration */
     [IDX_CHAR_B]      =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_notify}},
+    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write_notify}},
 
     /*PRY Characteristic Value */
     [IDX_CHAR_VAL_B]  =
@@ -61,7 +61,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
 
     /*Control U  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_C]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ,
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
     sizeof(uint16_t), sizeof(uint16_t), (uint8_t *)Ble_comm::cfg_val_on}},
 
     /*Control Gain Characteristic Declaration */
@@ -76,7 +76,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
 
     /*Control U  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_D]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ,
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
     sizeof(uint16_t), sizeof(uint16_t), (uint8_t *)Ble_comm::cfg_val_on}},
 
     /*Control command Characteristic Declaration */
@@ -91,7 +91,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
 notify_target_t Ble_comm::notify_targets[5] = {
     {0, 0, (uint8_t *)nullptr, sizeof(float)*6, "A"},
     {0, 0, (uint8_t *)nullptr, sizeof(float)*3, "B"},
-    {0, 0, (uint8_t *)nullptr, (sizeof(float)*1)+1, "C"},
+    {0, 0, (uint8_t *)nullptr, (sizeof(float)*5), "C"},
     {0, 0, (uint8_t *)nullptr, sizeof(float)*5*6, "D"},
     {0, 0, (uint8_t *)nullptr, sizeof(uint8_t)*2, "E"}
 };
@@ -100,6 +100,7 @@ Ble_comm::Ble_comm(float *xhat_value_p,float *PRY_value_p, float *controlU_p, fl
     Ble_comm::xhat_value = xhat_value_p;
     Ble_comm::controlU = controlU_p;
     Ble_comm::controlGain = controlGain_p;
+    Ble_comm::PRY_value = PRY_value_p;
 
     Ble_comm::gatt_db[IDX_CHAR_VAL_A].att_desc.value = (uint8_t*)xhat_value;
     Ble_comm::gatt_db[IDX_CHAR_VAL_B].att_desc.value = (uint8_t*)PRY_value;
@@ -518,13 +519,13 @@ void Ble_comm::sendTelemetry(){
     if (Ble_comm::profile_tab[PROFILE_APP_IDX].gatts_if != ESP_GATT_IF_NONE &&
         Ble_comm::profile_tab[PROFILE_APP_IDX].conn_id != 0xFFFF) {
         // Notify Xhat telemetry
-        esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
-                                    notify_targets[0].val_handle, notify_targets[0].value_len, notify_targets[0].value_ptr, false);
+        ESP_ERROR_CHECK(esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
+                                    notify_targets[0].val_handle, notify_targets[0].value_len, notify_targets[0].value_ptr, false));
         // Notify PRY telemetry
-        esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
-                                    notify_targets[1].val_handle, notify_targets[1].value_len, notify_targets[1].value_ptr, false);
+        ESP_ERROR_CHECK(esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
+                                    notify_targets[1].val_handle, notify_targets[1].value_len, notify_targets[1].value_ptr, false));
         // Notify Control U telemetry
-        esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
-                                    notify_targets[2].val_handle, notify_targets[2].value_len, notify_targets[2].value_ptr, false);
+        ESP_ERROR_CHECK(esp_ble_gatts_send_indicate(profile_tab[PROFILE_APP_IDX].gatts_if, profile_tab[PROFILE_APP_IDX].conn_id,
+                                    notify_targets[2].val_handle, notify_targets[2].value_len, notify_targets[2].value_ptr, false));
     }
 }

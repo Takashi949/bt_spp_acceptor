@@ -69,9 +69,9 @@ void Motion_control::update(){
     imu.readGyro();
     imu.readMag();
 	
-	a_grav(0, 0) = imu.calcAccel(imu.ax) * gravity_c;
-	a_grav(1, 0) = imu.calcAccel(imu.ay) * gravity_c;
-	a_grav(2, 0) = imu.calcAccel(imu.az) * gravity_c;
+	a_grav(0, 0) = -imu.calcAccel(imu.ax) * gravity_c;
+	a_grav(1, 0) = -imu.calcAccel(imu.az) * gravity_c;
+	a_grav(2, 0) = imu.calcAccel(imu.ay) * gravity_c;
 
 	//センサの姿勢を計算
 	//azだけ重力加速度込みの値を入れる
