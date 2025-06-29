@@ -114,6 +114,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
 
     if (msglen < 2) return; // コマンド＋float未満は無視
     memcpy(&val, &msg[1], sizeof(float));
+    ESP_LOG_BUFFER_HEX(TAG, msg, msglen);
     ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
     switch (msg[0])
     {
@@ -218,9 +219,13 @@ static void pwm_init(){
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo2, timer));
 
     Servo1 = new Motor(GPIO_NUM_4, operServo, 900, 2100);
+    Servo1->setCenterPulse(50.0f); 
     Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
+    Servo2->setCenterPulse(50.0f);
     Servo3 = new Motor(GPIO_NUM_15, operServo2, 900, 2100);
-    Servo4 = new Motor(GPIO_NUM_2, operServo2, 900, 2100);
+    Servo3->setCenterPulse(50.0f);
+    Servo4 = new Motor(GPIO_NUM_17, operServo2, 900, 2100);
+    Servo4->setCenterPulse(50.0f);
 
     if(Thrust == NULL || Servo1 == NULL || Servo2 == NULL || Servo3 == NULL || Servo4 == NULL){
         ESP_LOGE(TAG, "Motor or Servo creation failed");

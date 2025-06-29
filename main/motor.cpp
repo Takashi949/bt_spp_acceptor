@@ -56,7 +56,7 @@ esp_err_t Motor::setPWM(float percentage){
         percentage = 0.0f;
     }
 
-    if((err = mcpwm_comparator_set_compare_value(comparator, static_cast<uint32_t>(dpulse * percentage + (float)min_pulse_us))) != ESP_OK){
+    if((err = mcpwm_comparator_set_compare_value(comparator, static_cast<uint32_t>(dpulse * (percentage - (50.0f - center_pulse)) + (float)min_pulse_us))) != ESP_OK){
         ESP_LOGE(MOTOR_TAG, "%s", esp_err_to_name(err));
         return err;
     }

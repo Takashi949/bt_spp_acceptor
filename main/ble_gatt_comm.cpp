@@ -82,7 +82,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /*Control command Characteristic Declaration */
     [IDX_CHAR_E]      =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
-    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
+    CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_read_write_notify}},
 
     [IDX_CHAR_VAL_E]  =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_Command, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
@@ -284,10 +284,18 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                 ESP_LOGI(GATTS_TABLE_TAG, "GATT_WRITE_EVT, handle = %d, value len = %d", param->write.handle, param->write.len);
                 ESP_LOG_BUFFER_HEX(GATTS_TABLE_TAG, param->write.value, param->write.len);
 
-                if (param->write.len == 2) {
-                    //- 2バイトの値ならNotify/Indicateの有効・無効の切り替え
-                    uint16_t descr_value = param->write.value[1] << 8 | param->write.value[0];
+                //CCCD(Notify/Indicate設定)への書き込みかどうかで判定
+                bool is_cccd_write = false;
+                for (int i = 0; i < sizeof(notify_targets)/sizeof(notify_targets[0]); ++i) {
+                    if (param->write.handle == notify_targets[i].cfg_handle) {
+                        is_cccd_write = true;
+                        break;
+                    }
+                }
 
+                if (is_cccd_write) {
+                    // CCCD(Notify/Indicate設定)への書き込み
+                    uint16_t descr_value = param->write.value[1] << 8 | param->write.value[0];
                     for (int i = 0; i < sizeof(notify_targets)/sizeof(notify_targets[0]); ++i) {
                         const notify_target_t *t = &notify_targets[i];
                         if (param->write.handle == t->cfg_handle) {
@@ -307,8 +315,8 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                         }
                     }
                 }
-                else{
-                    // 2バイト以外の値なら、対応する変数に書き込む
+                else {
+                    // それ以外のCharacteristic Valueへの書き込み処理
                     // 書き込まれる変数は Control U, Control Gain, Remote Command のいずれか
                     if (param->write.handle == notify_targets[2].val_handle) { // Control U
                         if (param->write.len == sizeof(float) + 1) { // +1は制御信号の変更バイトフラグ
@@ -332,7 +340,7 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                             ESP_LOGE(GATTS_TABLE_TAG, "Invalid length for Control Gain write: %d", param->write.len);
                         }
                     } else if (param->write.handle == notify_targets[4].val_handle) { // Remote Command
-                        if (param->write.len == sizeof(uint8_t)*2) { // 2バイトのコマンド
+                        if (param->write.len > sizeof(uint8_t)) { // 2バイト以上のコマンド
                             command_cb(param->write.value, param->write.len);
                             ESP_LOGI(GATTS_TABLE_TAG, "Remote Command updated: %d", param->write.value[0]);
                         } else {
@@ -410,6 +418,8 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                 notify_targets[2].val_handle = param->add_attr_tab.handles[IDX_CHAR_VAL_C];
                 notify_targets[3].cfg_handle = param->add_attr_tab.handles[IDX_CHAR_CFG_D];
                 notify_targets[3].val_handle = param->add_attr_tab.handles[IDX_CHAR_VAL_D];
+                notify_targets[4].cfg_handle = param->add_attr_tab.handles[IDX_CHAR_CFG_E];
+                notify_targets[4].val_handle = param->add_attr_tab.handles[IDX_CHAR_VAL_E];
                 esp_ble_gatts_start_service(param->add_attr_tab.handles[IDX_SVC]);
             }
             break;
@@ -497,7 +507,7 @@ void Ble_comm::sendMsg(char *msg, unsigned char len) {
         esp_ble_gatts_send_indicate(
             profile_tab[PROFILE_APP_IDX].gatts_if,
             profile_tab[PROFILE_APP_IDX].conn_id,
-            notify_targets[0].val_handle,
+            notify_targets[4].val_handle,
             len,
             (uint8_t*)msg,
             false
