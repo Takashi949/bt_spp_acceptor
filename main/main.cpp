@@ -50,7 +50,8 @@ Motion_control motion;
     #include "ble_gatt_comm.h"
     void (*Ble_comm::command_cb)(uint8_t* data, uint16_t len) = command_cb;
     Ble_comm bl_comm(
-        motion.xhat.data, 
+        motion.xhat.data,
+        motion.PRY_value,
         motion.u.data, 
         motion.KCsrc
     );
@@ -61,14 +62,11 @@ bool isControlEnable = false;
 //blでIMUデータを送信するのをノンブロッキングでやるためのタスク
 void telemetry_task(){
     //ESP_LOGI("Telem", "sending imu");
-    float pry[3];
-    motion.getPRY(pry);
-    //ESP_LOGI(TAG, "PRY: %1.2f,%1.2f,%1.2f", pry[0], pry[1], pry[2]);  
 
     //Throttle PRY x v a u  
     #ifdef COMM_MODE_BT_SPP
     float msg[] = {Thrust->getPercent(),
-        pry[0], pry[1], pry[2],
+        motion.PRY_value[0], motion.PRY_value[1], motion.PRY_value[2],
         motion.x(0, 0), motion.x(1, 0), motion.x(2, 0),
         motion.xhat(3, 0), motion.xhat(4, 0), motion.xhat(5, 0),
         motion.xhat(0, 0), motion.xhat(1, 0), motion.xhat(2, 0),
@@ -78,6 +76,7 @@ void telemetry_task(){
     //ESP_LOGI(TAG, "msg len %d", sizeof(msg));
     bl_comm.sendMsg((char *)msg, sizeof(msg));
     #else
+    //ESP_LOGI(TAG, "send Telemetring");
     bl_comm.sendTelemetry();
     #endif
 
@@ -112,6 +111,8 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
     char SPPmsg[32] = "";
     float val;
+
+    if (msglen < 2) return; // コマンド＋float未満は無視
     memcpy(&val, &msg[1], sizeof(float));
     ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
     switch (msg[0])
@@ -138,34 +139,20 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     case 6:
         isControlEnable = false;
         break;
-    case 7:
-        memcpy(&motion.KC.data[0], &msg[1], sizeof(float) * 6);
-        break;
-    case 8:
-        memcpy(&motion.KC.data[1 * 6], &msg[1], sizeof(float) * 6);
-        break;
-        case 9:
-        memcpy(&motion.KC.data[2 * 6], &msg[1], sizeof(float) * 6);
-        break;
-    case 10:
-        memcpy(&motion.KC.data[3 * 6], &msg[1], sizeof(float) * 6);
-        break;
-    case 11:
-        memcpy(&motion.KC.data[4 * 6], &msg[1], sizeof(float) * 6);
-        break;
-    case 12:
-        memcpy(&motion.KC.data[5 * 6], &msg[1], sizeof(float) * 6);
-        break;
     default:
-        ESP_LOGI(TAG, "Unknow command Recieved.");
-        sprintf(SPPmsg, "tUnknow command Recieved.");
-        //もしBlueToothがつながってたら送信する
-        if (bl_comm.isClientConnecting())
-        {
-            ESP_LOGI(TAG, "MSG Write to SPP.");
-            ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
+        if (msg[0] > 6 && msg[0] < 10 && msglen > 1+sizeof(float)*6){
+            //KCの設定
+            memcpy(&motion.KC.data[(msg[0] -6)*6], &msg[1], sizeof(float) * 6);
+        }else {
+            ESP_LOGI(TAG, "Unknow command Recieved.");
+            sprintf(SPPmsg, "tUnknow command Recieved.");
+            //もしBlueToothがつながってたら送信する
+            if (bl_comm.isClientConnecting()) {
+                ESP_LOGI(TAG, "MSG Write to SPP.");
+                ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
 
-            bl_comm.sendMsg(SPPmsg, strlen(SPPmsg));
+                bl_comm.sendMsg(SPPmsg, strlen(SPPmsg));
+            }
         }
         break;
     }
@@ -234,6 +221,11 @@ static void pwm_init(){
     Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
     Servo3 = new Motor(GPIO_NUM_15, operServo2, 900, 2100);
     Servo4 = new Motor(GPIO_NUM_2, operServo2, 900, 2100);
+
+    if(Thrust == NULL || Servo1 == NULL || Servo2 == NULL || Servo3 == NULL || Servo4 == NULL){
+        ESP_LOGE(TAG, "Motor or Servo creation failed");
+        return;
+    }
     Servo1->begin();
     Servo2->begin();
     Servo3->begin();

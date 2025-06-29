@@ -89,6 +89,7 @@ public:
 	dspm::Mat v = dspm::Mat(3, 1);
 	dspm::Mat x = dspm::Mat(3, 1);
 	dspm::Mat u = dspm::Mat(5, 1);
+	float PRY_value[3] = {0};
 	dspm::Mat F, B, H, Q, R, KC;
 	float *KCsrc = KC.data;
 	dspm::Mat P = dspm::Mat::eye(6);

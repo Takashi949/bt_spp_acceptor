@@ -50,6 +50,7 @@ enum
     IDX_CHAR_CFG_D,
     
     IDX_CHAR_E,
+    IDX_CHAR_VAL_E,
     IDX_NB,
 };
 typedef struct {
@@ -99,7 +100,7 @@ constexpr uint8_t char_prop_read_write_notify   = ESP_GATT_CHAR_PROP_BIT_WRITE |
 
 class Ble_comm {
 public:
-    Ble_comm(float *xhat_value_p, float* controlU_p, float * controlGain_p);
+    Ble_comm(float *xhat_value_p,float* PRY_value_p, float* controlU_p, float * controlGain_p);
     esp_err_t begin();
 
     bool isClientConnecting(){

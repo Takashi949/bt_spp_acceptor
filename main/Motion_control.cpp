@@ -96,6 +96,7 @@ void Motion_control::update(){
 	//重力加速度を引く
 	a = a_grav + gv_b;
 
+	getPRY(PRY_value);
 	filtaUpdate();
 
 	calcU();

@@ -27,7 +27,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /*  Xhat Notify Value */
     [IDX_CHAR_VAL_A] =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_Xhat_Telem, ESP_GATT_PERM_READ,
-    GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(6*4), (uint8_t *)nullptr}},
+    GATTS_DEMO_CHAR_VAL_LEN_MAX, 0, (uint8_t *)nullptr}},
 
     /* Xhat Notify  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_A]  =
@@ -42,11 +42,11 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /*PRY Characteristic Value */
     [IDX_CHAR_VAL_B]  =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_PRY_Telem, ESP_GATT_PERM_READ,
-    GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(12), (uint8_t *)nullptr}},
+    GATTS_DEMO_CHAR_VAL_LEN_MAX, 0, (uint8_t *)nullptr}},
     
     /*PRY Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_B]  =
-    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ,
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_client_config_uuid, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
     sizeof(uint16_t), sizeof(uint16_t), (uint8_t *)Ble_comm::cfg_val_on}},
 
     /*Control U Characteristic Declaration */
@@ -57,7 +57,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /*Control U  Characteristic Value */
     [IDX_CHAR_VAL_C]  =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_contU_TelemWrite, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-    GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(5*4), (uint8_t *)nullptr}},
+    GATTS_DEMO_CHAR_VAL_LEN_MAX, 0, (uint8_t *)nullptr}},
 
     /*Control U  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_C]  =
@@ -72,7 +72,7 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     /*Control U  Characteristic Value */
     [IDX_CHAR_VAL_D]  =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_ContGain_Upd, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-    GATTS_DEMO_CHAR_VAL_LEN_MAX, sizeof(5*6*4), (uint8_t *)nullptr}},
+    GATTS_DEMO_CHAR_VAL_LEN_MAX, 0, (uint8_t *)nullptr}},
 
     /*Control U  Client Characteristic Configuration Descriptor */
     [IDX_CHAR_CFG_D]  =
@@ -83,15 +83,20 @@ esp_gatts_attr_db_t Ble_comm::gatt_db[IDX_NB] = {
     [IDX_CHAR_E]      =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ,
     CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
+
+    [IDX_CHAR_VAL_E]  =
+    {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&GATTS_CHAR_UUID_Command, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+    GATTS_DEMO_CHAR_VAL_LEN_MAX, 0, (uint8_t *)nullptr}},  
 };
 notify_target_t Ble_comm::notify_targets[5] = {
-    {0, 0, (uint8_t *)nullptr, sizeof(float)*3, "A"},
+    {0, 0, (uint8_t *)nullptr, sizeof(float)*6, "A"},
     {0, 0, (uint8_t *)nullptr, sizeof(float)*3, "B"},
-    {0, 0, (uint8_t *)nullptr, sizeof(float), "C"},
-    {0, 0, (uint8_t *)nullptr, sizeof(float)*6*4, "D"},
+    {0, 0, (uint8_t *)nullptr, (sizeof(float)*1)+1, "C"},
+    {0, 0, (uint8_t *)nullptr, sizeof(float)*5*6, "D"},
+    {0, 0, (uint8_t *)nullptr, sizeof(uint8_t)*2, "E"}
 };
 
-Ble_comm::Ble_comm(float *xhat_value_p, float *controlU_p, float *controlGain_p) {
+Ble_comm::Ble_comm(float *xhat_value_p,float *PRY_value_p, float *controlU_p, float *controlGain_p) {
     Ble_comm::xhat_value = xhat_value_p;
     Ble_comm::controlU = controlU_p;
     Ble_comm::controlGain = controlGain_p;
@@ -320,14 +325,14 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                             ESP_LOGE(GATTS_TABLE_TAG, "Invalid length for Control U write");
                         }
                     } else if (param->write.handle == notify_targets[3].val_handle) { // Control Gain
-                        if (param->write.len == sizeof(float) * 5 * 4) { // 5x4 matrix
-                            memcpy(Ble_comm::controlGain, param->write.value, sizeof(float) * 5 * 4);
+                        if (param->write.len == sizeof(float) * 5 * 6) { // 5x4 matrix
+                            memcpy(Ble_comm::controlGain, param->write.value, sizeof(float) * 5 * 6);
                             ESP_LOGI(GATTS_TABLE_TAG, "Control Gain updated");
                         } else {
                             ESP_LOGE(GATTS_TABLE_TAG, "Invalid length for Control Gain write: %d", param->write.len);
                         }
                     } else if (param->write.handle == notify_targets[4].val_handle) { // Remote Command
-                        if (param->write.len == sizeof(uint8_t)) {
+                        if (param->write.len == sizeof(uint8_t)*2) { // 2バイトのコマンド
                             command_cb(param->write.value, param->write.len);
                             ESP_LOGI(GATTS_TABLE_TAG, "Remote Command updated: %d", param->write.value[0]);
                         } else {
@@ -396,9 +401,7 @@ void Ble_comm::gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_
                         doesn't equal to IDX_NB(%d)", param->add_attr_tab.num_handle, IDX_NB);
             }
             else {
-                ESP_LOGI(GATTS_TABLE_TAG, "create attribute table successfully, the number handle = %d",param->add_attr_tab.num_handle);
-                memcpy(gatt_db, param->add_attr_tab.handles, sizeof(gatt_db));
-                
+                ESP_LOGI(GATTS_TABLE_TAG, "create attribute table successfully, the number handle = %d",param->add_attr_tab.num_handle);               
                 notify_targets[0].cfg_handle = param->add_attr_tab.handles[IDX_CHAR_CFG_A];
                 notify_targets[0].val_handle = param->add_attr_tab.handles[IDX_CHAR_VAL_A];
                 notify_targets[1].cfg_handle = param->add_attr_tab.handles[IDX_CHAR_CFG_B];
