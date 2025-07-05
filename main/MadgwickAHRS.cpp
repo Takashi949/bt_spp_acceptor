@@ -254,9 +254,9 @@ void Madgwick::calcW(){
 
 void Madgwick::trans(float *rv, float *v){
 	float R[3][3] = {
-		{2.0f*q0*q0 - 1.0f + 2.0f * q1*q1, 2.0f*(q1 * q2 + q0 * q3), 2.0f*(q1 * q3 - q0 * q2)},
-		{2.0f*(q1*q2 - q0*q3), 2.0f * q0*q0 - 1.0f + 2.0f * q2*q2, 2.0f*(q2*q3 + q0 * q1)},
-		{2.0f*(q1*q3 + q0*q2), 2.0f * (q2*q3 - q0 * q1), 2.0f*q0*q0 -1.0f + 2.0f*q3*q3} 
+		{ 1 - 2*(q2*q2 + q3*q3),   2*(q1*q2 - q0*q3),   2*(q1*q3 + q0*q2) },
+		{ 2*(q1*q2 + q0*q3),       1 - 2*(q1*q1 + q3*q3), 2*(q2*q3 - q0*q1) },
+		{ 2*(q1*q3 - q0*q2),       2*(q2*q3 + q0*q1),    1 - 2*(q1*q1 + q2*q2) }
 	};
 	rv[0] = 0;
 	rv[1] = 0;

@@ -17,7 +17,7 @@ class Motion_control{
 	float IMU2body_src[9] = {
 		1, 0, 0,
 		0, 0, -1,
-		0, 1, 0
+		0, -1, 0
 	};
 	dspm::Mat IMU_2_body = dspm::Mat(IMU2body_src, 3, 3);
 public:
