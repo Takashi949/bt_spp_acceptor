@@ -34,7 +34,7 @@
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
 
 #define TAG "ESP_SPP_DRONE"
-const float IMU_sampling_ms = 50;
+const float IMU_sampling_ms = 100;
 
 //#define COMM_MODE_BT_SPP
 
@@ -222,7 +222,7 @@ static void pwm_init(){
     Servo1->setCenterPulse(50.0f); 
     Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
     Servo2->setCenterPulse(50.0f);
-    Servo3 = new Motor(GPIO_NUM_15, operServo2, 900, 2100);
+    Servo3 = new Motor(GPIO_NUM_22, operServo2, 900, 2100);
     Servo3->setCenterPulse(50.0f);
     Servo4 = new Motor(GPIO_NUM_17, operServo2, 900, 2100);
     Servo4->setCenterPulse(50.0f);
