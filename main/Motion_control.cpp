@@ -7,28 +7,46 @@
 #include "dsp_platform.h"
 #include "mat.h"
 
+namespace dspm_utils {
+
+  // 3×1 行列から 3×3 のスキュー対称行列を生成
+  dspm::Mat skew( dspm::Mat &v )
+  {
+    dspm::Mat M(3, 3);
+
+    // v(i,0) は i 行目の要素
+    M(0,0) =  0;         M(0,1) = -v(2,0);  M(0,2) =  v(1,0);
+    M(1,0) =  v(2,0);    M(1,1) =  0;        M(1,2) = -v(0,0);
+    M(2,0) = -v(1,0);    M(2,1) =  v(0,0);  M(2,2) =  0;
+
+    return M;
+  }
+} // namespace dspm_utils
+
 void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
         ESP_LOGE(TAG, "imu initialize faile");
     }
+	dt =  1.0f / sampleFreq; //sampleFreqはHzなので、dtは秒
 	madgwick.begin(sampleFreq);
 }
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
-	float gsrc[] = {gx, gy, gz};
-	gdot[0] = (gx - g(0, 0))/dt;
-	gdot[1] = (gy - g(1, 0))/dt;
-	gdot[2] = (gz - g(2, 0))/dt;
+	float a_src[3] = {ax, ay, az};
+	a = IMU_2_body * dspm::Mat(a_src, 3, 1);
+	float g_src[3] = {gx, gy, gz};
+	g = IMU_2_body * dspm::Mat(g_src, 3, 1);
 
-	float wl = gx*x_IMU[0] + gy*x_IMU[1] + gz*x_IMU[2];
-	float ww = gx * gx + gy * gy + gz * gz;
+	//ジャイロの前回値を使うのでg=より先に計算
+	dspm::Mat centripetal = dspm_utils::skew(g) * (dspm_utils::skew(g) * dspm::Mat(x_IMU, 3, 1));
 
-	a(0, 0) = ax - gdot[1] * x_IMU[2] + gdot[2]*x_IMU[1] - wl * gx + ww * x_IMU[0];
-	a(1, 0) = ay - gdot[2] * x_IMU[0] + gdot[0]*x_IMU[2] - wl * gy + ww * x_IMU[1];
-	a(2, 0) = az - gdot[0] * x_IMU[1] + gdot[1]*x_IMU[0] - wl * gz + ww * x_IMU[2];
+	dspm::Mat ga = ((g - g_prev) * (1.0f /dt));
+    dspm::Mat tangential = dspm_utils::skew(ga) * dspm::Mat(x_IMU, 3, 1);
+	a = a - centripetal - tangential; //重心の座標系に変換
 
-	g(0, 0) = gx;
-	g(1, 0) = gy;
-	g(2, 0) = gz;
+	float m_src[3] = {mx, my, mz};
+	m = IMU_2_body * dspm::Mat(m_src, 3, 1);
+
+	g_prev = g;
 }
 void Motion_control::filtaUpdate(){
 	//ESP_LOGD(TAG, "kalman Start");
@@ -68,45 +86,39 @@ void Motion_control::update(){
     imu.readAccel();
     imu.readGyro();
     imu.readMag();
-	
-	a_grav(0, 0) = -imu.calcAccel(imu.ax) * gravity_c;
-	a_grav(1, 0) = -imu.calcAccel(imu.az) * gravity_c;
-	a_grav(2, 0) = imu.calcAccel(imu.ay) * gravity_c;
+
+	//センサ取り付け角度の変換行列Rinst IMU座標系から重心の座標系へ
+	Sensor2Body(imu.calcGyro(imu.gx) * deg2rad, imu.calcGyro(imu.gy) * deg2rad, imu.calcGyro(imu.gz) * deg2rad,
+				imu.calcAccel(imu.ax) * gravity_c, imu.calcAccel(imu.ay) * gravity_c, imu.calcAccel(imu.az) * gravity_c,
+				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
 
 	//センサの姿勢を計算
 	//azだけ重力加速度込みの値を入れる
-	madgwick.update(imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz),
-					a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
-					imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
+	madgwick.update(g(0, 0) *rad2deg, g(1, 0) *rad2deg, g(2, 0) *rad2deg,
+					a(0, 0), a(1, 0), a(2, 0),
+					m(0, 0), m(1, 0), m(2, 0));
 	
-	//センサ座標系から重心の座標系へ
-	Sensor2Body(imu.calcGyro(imu.gx) * deg2rad, imu.calcGyro(imu.gy) * deg2rad, imu.calcGyro(imu.gz) * deg2rad,
-				a_grav(0, 0), a_grav(1, 0), a_grav(2, 0),
-				imu.calcMag(imu.mx - m0[0]), imu.calcMag(imu.my - m0[1]), imu.calcMag(imu.mz - m0[2]));
+	getPRY(PRY_value);
 
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, -gravity_c};
 	float gv_bsrc[3] = {0.0};
 	madgwick.trans(gv_bsrc, gv);
+
 	dspm::Mat gv_b(gv_bsrc, 3, 1);
 
-	//LPF用の前回値
-	//dspm::Mat a_old = a;
-
 	//重力加速度を引く
-	a = a_grav + gv_b;
+	a = a + gv_b;
 
-	getPRY(PRY_value);
 	filtaUpdate();
 
 	calcU();
 	
-	//ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", xhat(0, 0), xhat(1, 0), xhat(2, 0));
 	//ESP_LOGI(TAG, "raw%1.2f,%1.2f,%1.2f", a(0, 0), a(1, 0), a(2, 0));
 	//ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
 }
 void Motion_control::calcU(){
-	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), madgwick.getYawRadians()};
+	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), 0};
 	u = KC * dspm::Mat(xsrc, 6, 1);
 }
 void Motion_control::getPRY(float* retbuf){

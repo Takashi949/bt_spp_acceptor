@@ -143,7 +143,9 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     default:
         if (msg[0] > 6 && msg[0] < 10 && msglen > 1+sizeof(float)*6){
             //KCの設定
+            ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", motion.KC(0, 3), motion.KC(1, 3), motion.KC(2, 3));
             memcpy(&motion.KC.data[(msg[0] -6)*6], &msg[1], sizeof(float) * 6);
+            ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", motion.KC(0, 3), motion.KC(1, 3), motion.KC(2, 3));
         }else {
             ESP_LOGI(TAG, "Unknow command Recieved.");
             sprintf(SPPmsg, "tUnknow command Recieved.");
