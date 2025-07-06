@@ -109,7 +109,7 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
-    char SPPmsg[32] = "";
+    char SPPmsg[64] = "";
     float val;
 
     if (msglen < 2) return; // コマンド＋float未満は無視
@@ -139,6 +139,16 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         break;   
     case 6:
         isControlEnable = false;
+        break;
+    case 10:
+        //Servoの一括設定
+        uint8_t valServo[5];
+        memcpy(valServo, &msg[1], sizeof(uint8_t)*5);
+        ESP_ERROR_CHECK(Thrust->setPWM((float)valServo[0]));
+        ESP_ERROR_CHECK(Servo1->setPWM((float)valServo[1]));
+        ESP_ERROR_CHECK(Servo2->setPWM((float)valServo[2]));
+        ESP_ERROR_CHECK(Servo3->setPWM((float)valServo[3]));
+        ESP_ERROR_CHECK(Servo4->setPWM((float)valServo[4]));
         break;
     default:
         if (msg[0] > 6 && msg[0] < 10 && msglen > 1+sizeof(float)*6){

@@ -97,7 +97,7 @@ constexpr uint16_t character_client_config_uuid = ESP_GATT_UUID_CHAR_CLIENT_CONF
 constexpr uint8_t char_prop_read                = ESP_GATT_CHAR_PROP_BIT_READ;
 constexpr uint8_t char_prop_write               = ESP_GATT_CHAR_PROP_BIT_WRITE;
 constexpr uint8_t char_prop_read_notify         = ESP_GATT_CHAR_PROP_BIT_NOTIFY | ESP_GATT_CHAR_PROP_BIT_READ;
-constexpr uint8_t char_prop_read_write_notify   = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+constexpr uint8_t char_prop_read_write_notify   = ESP_GATT_CHAR_PROP_BIT_WRITE_NR | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 
 class Ble_comm {
 public:
