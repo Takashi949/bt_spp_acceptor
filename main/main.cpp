@@ -30,6 +30,8 @@
 #include "motor.h"
 #include "Motion_control.h"
 
+#include <bit>
+
 #define SERVO_TIMEBASE_RESOLUTION_HZ 1000000  // 1MHz, 1us per tick
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
 
@@ -85,7 +87,7 @@ void telemetry_task(){
 // 新たな定期的にスマホに送信するタイマーコールバック関数を定義します。
 void bl_telemetry_callback(TimerHandle_t xTimer)
 {
-    if(bl_comm.isClientConnecting()){
+    if(bl_comm.isConnected()){
         // 新たなタスクを作成してメッセージを送信します。
 
         //ESP_LOGI("Timer", "telemetring");
@@ -110,10 +112,9 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 static void command_cb(uint8_t *msg, uint16_t msglen){
     ESP_LOGI(TAG, "%s", msg);
     char SPPmsg[64] = "";
-    float val;
 
     if (msglen < 2) return; // コマンド＋float未満は無視
-    memcpy(&val, &msg[1], sizeof(float));
+    float val = std::bit_cast<float>(*reinterpret_cast<const uint32_t*>(&msg[1]));
     ESP_LOG_BUFFER_HEX(TAG, msg, msglen);
     ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
     switch (msg[0])
@@ -142,8 +143,8 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         break;
     case 10:
         //Servoの一括設定
-        uint8_t valServo[5];
-        memcpy(valServo, &msg[1], sizeof(uint8_t)*5);
+        std::array<uint8_t, 5> valServo;
+        std::copy(msg + 1, msg + 6, valServo.begin());
         ESP_ERROR_CHECK(Thrust->setPWM((float)valServo[0]));
         ESP_ERROR_CHECK(Servo1->setPWM((float)valServo[1]));
         ESP_ERROR_CHECK(Servo2->setPWM((float)valServo[2]));
@@ -154,13 +155,16 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         if (msg[0] > 6 && msg[0] < 10 && msglen > 1+sizeof(float)*6){
             //KCの設定
             ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", motion.KC(0, 3), motion.KC(1, 3), motion.KC(2, 3));
-            memcpy(&motion.KC.data[(msg[0] -6)*6], &msg[1], sizeof(float) * 6);
+            auto* raw = reinterpret_cast<const uint32_t*>(&msg[1]);
+            for (size_t i = 0; i < 6; ++i) {
+                motion.KC.data[(msg[0] - 6)*6 + i] = std::bit_cast<float>(raw[i]);
+            }
             ESP_LOGI(TAG, "%1.2f,%1.2f,%1.2f", motion.KC(0, 3), motion.KC(1, 3), motion.KC(2, 3));
         }else {
             ESP_LOGI(TAG, "Unknow command Recieved.");
             sprintf(SPPmsg, "tUnknow command Recieved.");
             //もしBlueToothがつながってたら送信する
-            if (bl_comm.isClientConnecting()) {
+            if (bl_comm.isConnected()) {
                 ESP_LOGI(TAG, "MSG Write to SPP.");
                 ESP_LOGI(TAG, "%s", (uint8_t*)SPPmsg);
 
