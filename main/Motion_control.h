@@ -15,11 +15,18 @@ class Motion_control{
 	dspm::Mat g_prev = dspm::Mat(g_prev_src, 3,1);
 
 	float IMU2body_src[9] = {
-		1, 0, 0,
 		0, 0, -1,
+		-1, 0, 0,
+		0, -1, 0
+	};
+	//磁気センサはX逆
+	float IMU2body_src_Mag[9] = {
+		0, 0, -1,
+		1, 0, 0,
 		0, -1, 0
 	};
 	dspm::Mat IMU_2_body = dspm::Mat(IMU2body_src, 3, 3);
+	dspm::Mat IMU_2_body_mag = dspm::Mat(IMU2body_src_Mag, 3, 3);
 public:
 	Motion_control(){
 		//x = [ax ay az vx vy vz]';
@@ -74,14 +81,14 @@ public:
 		}
 
 		float KCsrc[] = {
-			0.,0.,0.,0.,0.,0.,
-			0.4873631,0.6645038,2.9281276,-12.214915,-16.683565,-74.538394,
-			0.5360112,-0.6469241,-0.4626991,-13.442346,16.226989,11.779672,
-			-0.5305663,0.6302731,-0.4359397,13.303909,-15.803575,11.095848,
-			-0.5227648,-0.5562436,2.91457,13.114991,13.930643,-74.19182,
+			0, 0, 0,
+			-1,  1,  0.5,
+			-1,  -1,  0.5,
+			1, -1,  0.5,
+			1, 1,  0.5,
 		};
 			
-		KC = dspm::Mat(KCsrc, 5, 6);
+		KC = dspm::Mat(KCsrc, 5, 3);
 	}
 
 	const float gravity_c = 9.80665;
@@ -98,6 +105,7 @@ public:
 	dspm::Mat v = dspm::Mat(3, 1);
 	dspm::Mat x = dspm::Mat(3, 1);
 	dspm::Mat u = dspm::Mat(5, 1);
+	//単位はrad
 	float PRY_value[3] = {0};
 	dspm::Mat F, B, H, Q, R, KC;
 	float *KCsrc = KC.data;
@@ -112,6 +120,7 @@ public:
     void filtaUpdate();
     void update();
     void calcU();
+	//単位はrad
     void getPRY(float *retbuf);
     void calib();
     void correctInitValue(uint16_t num_loop);

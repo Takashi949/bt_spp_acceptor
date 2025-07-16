@@ -22,6 +22,32 @@ namespace dspm_utils {
     return M;
   }
 } // namespace dspm_utils
+struct PID {
+	float Kp, Ki, Kd;
+	float prev_error;
+	float integral;
+};
+
+// PID制御用のインスタンス
+PID pitch_pid = {25.0f, 10.0f, 10.0f, 0.0f, 0.0f};
+PID roll_pid = {25.0f, 10.0f, 10.0f, 0.0f, 0.0f};
+PID yaw_pid = {.0f, .0f, 0.00f, 0.0f, 0.0f};
+
+// 目標値（セットポイント）
+float target_pitch = 0.0f; // 目標ピッチ角
+float target_roll = 0.0f;  // 目標ロール角
+float target_yaw = 0.0f;   // 目標ヨー角
+
+// PID制御計算関数
+float calculatePID(PID &pid, float target, float current, float dt) {
+    float error = target - current; // 誤差
+    pid.integral += error * dt;     // 積分項
+    float derivative = (error - pid.prev_error) / dt; // 微分項
+    pid.prev_error = error;         // 前回の誤差を更新
+
+    // PID制御出力
+    return pid.Kp * error + pid.Ki * pid.integral + pid.Kd * derivative;
+}
 
 void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle){
  	if(imu.begin(LSM9DS1_AG_ADDR(0), LSM9DS1_M_ADDR(0), bus_handle) == 0){
@@ -44,7 +70,7 @@ void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float a
 	a = a - centripetal - tangential; //重心の座標系に変換
 
 	float m_src[3] = {mx, my, mz};
-	m = IMU_2_body * dspm::Mat(m_src, 3, 1);
+	m = IMU_2_body_mag * dspm::Mat(m_src, 3, 1);
 
 	g_prev = g;
 }
@@ -103,6 +129,7 @@ void Motion_control::update(){
 	//姿勢から重力の分力を減算
 	float gv[] = {0.0, 0.0, -gravity_c};
 	float gv_bsrc[3] = {0.0};
+
 	madgwick.trans(gv_bsrc, gv);
 
 	dspm::Mat gv_b(gv_bsrc, 3, 1);
@@ -118,13 +145,24 @@ void Motion_control::update(){
 	//ESP_LOGI(TAG, "u%2.1f,%2.1f,%2.1f", u(1, 0), u(2, 0), u(3, 0));
 }
 void Motion_control::calcU(){
-	float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), 0};
-	u = KC * dspm::Mat(xsrc, 6, 1);
+	//float xsrc[] = {g(0, 0), g(1, 0), g(2, 0), madgwick.getPitchRadians(), madgwick.getRollRadians(), 0};
+	//u = KC * dspm::Mat(xsrc, 6, 1);
+
+    // PID制御を適用
+	float xsrc[3];
+    xsrc[0] = calculatePID(pitch_pid, target_pitch, PRY_value[0], dt);
+    xsrc[1] = calculatePID(roll_pid, target_roll, PRY_value[1], dt);
+    //xsrc[2] = calculatePID(yaw_pid, target_yaw, PRY_value[2], dt);
+	xsrc[2] = 0.0f;
+
+    // 制御出力を使用して次の処理を実行
+    u = KC * dspm::Mat(xsrc, 3, 1);
 }
+// PRY値を取得する関数単位は度
 void Motion_control::getPRY(float* retbuf){
-	retbuf[0] = madgwick.getPitch();
-	retbuf[1] = madgwick.getRoll();
-	retbuf[2] = madgwick.getYaw();
+	retbuf[0] = madgwick.getPitchRadians();
+	retbuf[1] = madgwick.getRollRadians();
+	retbuf[2] = madgwick.getYawRadians();
 }
 void Motion_control::calib(){
 	imu.calibrate(true);
