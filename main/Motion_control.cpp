@@ -22,25 +22,10 @@ namespace dspm_utils {
     return M;
   }
 } // namespace dspm_utils
-struct PID {
-	float Kp, Ki, Kd;
-	float prev_error;
-	float integral;
-};
-
-// PID制御用のインスタンス
-PID pitch_pid = {25.0f, 10.0f, 10.0f, 0.0f, 0.0f};
-PID roll_pid = {25.0f, 10.0f, 10.0f, 0.0f, 0.0f};
-PID yaw_pid = {.0f, .0f, 0.00f, 0.0f, 0.0f};
-
-// 目標値（セットポイント）
-float target_pitch = 0.0f; // 目標ピッチ角
-float target_roll = 0.0f;  // 目標ロール角
-float target_yaw = 0.0f;   // 目標ヨー角
 
 // PID制御計算関数
-float calculatePID(PID &pid, float target, float current, float dt) {
-    float error = target - current; // 誤差
+float Motion_control::calculatePID(PID &pid, float current) {
+    float error = pid.target - current; // 誤差
     pid.integral += error * dt;     // 積分項
     float derivative = (error - pid.prev_error) / dt; // 微分項
     pid.prev_error = error;         // 前回の誤差を更新
@@ -56,6 +41,7 @@ void Motion_control::begin(float sampleFreq, i2c_master_bus_handle_t bus_handle)
 	dt =  1.0f / sampleFreq; //sampleFreqはHzなので、dtは秒
 	madgwick.begin(sampleFreq);
 }
+
 void Motion_control::Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz){
 	float a_src[3] = {ax, ay, az};
 	a = IMU_2_body * dspm::Mat(a_src, 3, 1);
@@ -150,8 +136,8 @@ void Motion_control::calcU(){
 
     // PID制御を適用
 	float xsrc[3];
-    xsrc[0] = calculatePID(pitch_pid, target_pitch, PRY_value[0], dt);
-    xsrc[1] = calculatePID(roll_pid, target_roll, PRY_value[1], dt);
+    xsrc[0] = calculatePID(pitch_pid, PRY_value[0]);
+    xsrc[1] = calculatePID(roll_pid, PRY_value[1]);
     //xsrc[2] = calculatePID(yaw_pid, target_yaw, PRY_value[2], dt);
 	xsrc[2] = 0.0f;
 
@@ -164,9 +150,11 @@ void Motion_control::getPRY(float* retbuf){
 	retbuf[1] = madgwick.getRollRadians();
 	retbuf[2] = madgwick.getYawRadians();
 }
+
 void Motion_control::calib(){
 	imu.calibrate(true);
 }
+
 void Motion_control::correctInitValue(uint16_t num_loop){
 	ESP_LOGI(TAG, "calibrate START");
 	//ジャイロセンサの初期値を取得

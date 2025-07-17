@@ -5,7 +5,12 @@
 #include <string.h>
 
 #define TAG "MOTION"
-
+struct PID {
+	float Kp, Ki, Kd;
+	float prev_error;
+	float integral;
+	float target; // 目標値（セットポイント）
+};
 class Motion_control{
 	LSM9DS1 imu;
 	Madgwick madgwick;
@@ -89,6 +94,11 @@ public:
 		};
 			
 		KC = dspm::Mat(KCsrc, 5, 3);
+
+		// PID制御用のインスタンス
+		pitch_pid = {25.0f, 10.0f, .50f, 0.0f, 0.0f, 0.0f};
+		roll_pid = {25.0f, 10.0f, .50f, 0.0f, 0.0f, 0.0f};
+		yaw_pid = {.0f, .0f, 0.00f, 0.0f, 0.0f, 0.0f};
 	}
 
 	const float gravity_c = 9.80665;
@@ -114,6 +124,7 @@ public:
 	float gdot[3] = {0};
 	float thetadot[3] = {0};
 	float dt = 0.05f;
+	PID pitch_pid, roll_pid, yaw_pid;
 
 	void begin(float sampleFreq, i2c_master_bus_handle_t bus_handle);
     void Sensor2Body(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
@@ -124,4 +135,5 @@ public:
     void getPRY(float *retbuf);
     void calib();
     void correctInitValue(uint16_t num_loop);
+	float calculatePID(PID &pid, float current);
 };
