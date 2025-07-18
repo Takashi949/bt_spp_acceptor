@@ -96,7 +96,7 @@ public:
 		KC = dspm::Mat(KCsrc, 5, 3);
 
 		// PID制御用のインスタンス
-		pitch_pid = {10.0f, 0.0f, 8.0f, 0.0f, 0.0f, 0.0f};
+		pitch_pid = {6.0f, 0.0f, 3.0f, 0.0f, 0.0f, 0.0f};
 		roll_pid = {10.0f, 0.0f, 8.0f, 0.0f, 0.0f, 0.0f};
 		yaw_pid = {.0f, .0f, 0.00f, 0.0f, 0.0f, 0.0f};
 	}

@@ -138,8 +138,7 @@ void Motion_control::calcU(){
 	float xsrc[3];
     xsrc[0] = calculatePID(pitch_pid, PRY_value[0]);
     xsrc[1] = calculatePID(roll_pid, PRY_value[1]);
-    //xsrc[2] = calculatePID(yaw_pid, target_yaw, PRY_value[2], dt);
-	xsrc[2] = 0.0f;
+    xsrc[2] = calculatePID(yaw_pid, PRY_value[2]);
 
     // 制御出力を使用して次の処理を実行
     u = KC * dspm::Mat(xsrc, 3, 1);
