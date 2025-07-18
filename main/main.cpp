@@ -108,31 +108,26 @@ void IRAM_ATTR timer_callback(TimerHandle_t xTimer)
 }
 
 static void command_cb(uint8_t *msg, uint16_t msglen){
-    ESP_LOGI(TAG, "%s", msg);
     char SPPmsg[64] = "";
-    float val;
-
-    if (msglen < 2) return; // コマンド＋float未満は無視
-    memcpy(&val, &msg[1], sizeof(float));
     ESP_LOG_BUFFER_HEX(TAG, msg, msglen);
-    ESP_LOGI(TAG, "Command Recieved. %2.1f", val);
+    if (msglen < 2) return; // コマンド＋float未満は無視
     switch (msg[0])
     {
     case 0:
         /* code */
-        ESP_ERROR_CHECK(Thrust->setPWM(val));   
+        ESP_ERROR_CHECK(Thrust->setPWM((float)msg[1]));   
         break;
     case 1:
-        ESP_ERROR_CHECK(Servo1->setPWM(val));
+        ESP_ERROR_CHECK(Servo1->setPWM((float)msg[1]));
         break;
     case 2:
-        ESP_ERROR_CHECK(Servo2->setPWM(val));
+        ESP_ERROR_CHECK(Servo2->setPWM((float)msg[1]));
         break;
     case 3:
-        ESP_ERROR_CHECK(Servo3->setPWM(val));
+        ESP_ERROR_CHECK(Servo3->setPWM((float)msg[1]));
         break;
     case 4:
-        ESP_ERROR_CHECK(Servo4->setPWM(val));
+        ESP_ERROR_CHECK(Servo4->setPWM((float)msg[1]));
         break;
     case 5:
         isControlEnable = true;
@@ -161,7 +156,7 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
         }
         break;
     case 12:
-        //pitch PID
+        //roll PID
         if(msg[1] == 0){
             memcpy(&motion.roll_pid.Kp, &msg[2], sizeof(float));
         }else if(msg[1] == 1){
@@ -173,11 +168,11 @@ static void command_cb(uint8_t *msg, uint16_t msglen){
     case 13:
         //pitch PID
         if(msg[1] == 0){
-            memcpy(&motion.pitch_pid.Kp, &msg[2], sizeof(float));
+            memcpy(&motion.yaw_pid.Kp, &msg[2], sizeof(float));
         }else if(msg[1] == 1){
-            memcpy(&motion.pitch_pid.Ki, &msg[2], sizeof(float));
+            memcpy(&motion.yaw_pid.Ki, &msg[2], sizeof(float));
         }else if(msg[1] == 2){
-            memcpy(&motion.pitch_pid.Kd, &msg[2], sizeof(float));
+            memcpy(&motion.yaw_pid.Kd, &msg[2], sizeof(float));
         }
         break;
     default:
@@ -262,13 +257,13 @@ static void pwm_init(){
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(operServo2, timer));
 
     Servo1 = new Motor(GPIO_NUM_4, operServo, 900, 2100);
-    Servo1->setCenterPulse(50.0f); 
+    Servo1->setCenterPulse(44.0f); 
     Servo2 = new Motor(GPIO_NUM_16, operServo, 900, 2100);
-    Servo2->setCenterPulse(50.0f);
+    Servo2->setCenterPulse(56.0f);
     Servo3 = new Motor(GPIO_NUM_22, operServo2, 900, 2100);
-    Servo3->setCenterPulse(50.0f);
+    Servo3->setCenterPulse(56.0f);
     Servo4 = new Motor(GPIO_NUM_17, operServo2, 900, 2100);
-    Servo4->setCenterPulse(50.0f);
+    Servo4->setCenterPulse(44.0f);
 
     if(Thrust == NULL || Servo1 == NULL || Servo2 == NULL || Servo3 == NULL || Servo4 == NULL){
         ESP_LOGE(TAG, "Motor or Servo creation failed");
